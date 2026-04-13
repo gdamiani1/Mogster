@@ -16,7 +16,7 @@ import { COLORS, SPACING } from "../constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
-const CARD_HEIGHT = CARD_WIDTH * 1.4; // slightly taller than square for IG story feel
+const CARD_HEIGHT = CARD_WIDTH * 1.78; // 9:16 IG Story ratio — tall enough for all text
 
 interface AuraResult {
   aura_score: number;
@@ -122,12 +122,12 @@ export default function AuraResultCard({
             />
 
             {/* Roast */}
-            <Text style={styles.roast} numberOfLines={3}>
+            <Text style={styles.roast}>
               "{result.roast}"
             </Text>
 
             {/* Personality read */}
-            <Text style={styles.personality} numberOfLines={3}>
+            <Text style={styles.personality}>
               {result.personality_read}
             </Text>
 
