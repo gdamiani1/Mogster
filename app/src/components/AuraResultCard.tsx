@@ -88,11 +88,12 @@ export default function AuraResultCard({
           <LinearGradient
             colors={[
               "transparent",
-              "rgba(0,0,0,0.15)",
-              "rgba(0,0,0,0.6)",
-              "rgba(0,0,0,0.92)",
+              "transparent",
+              "rgba(0,0,0,0.4)",
+              "rgba(0,0,0,0.85)",
+              "rgba(0,0,0,0.95)",
             ]}
-            locations={[0, 0.3, 0.55, 0.75]}
+            locations={[0, 0.4, 0.55, 0.7, 0.85]}
             style={styles.gradientOverlay}
           />
 
