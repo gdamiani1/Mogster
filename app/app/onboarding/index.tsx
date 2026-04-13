@@ -15,14 +15,12 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { COLORS, SPACING } from "../../src/constants/theme";
 import { SIGMA_PATHS } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const ONBOARDING_KEY = "aurate_onboarding_complete";
 
 /* ------------------------------------------------------------------ */
 /*  Screen 1 – Welcome                                                */
@@ -100,6 +98,7 @@ function LaunchScreen() {
 export default function OnboardingScreen() {
   const router = useRouter();
   const setPath = useAuthStore((s) => s.setPath);
+  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
 
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -129,8 +128,8 @@ export default function OnboardingScreen() {
     if (selectedPath) {
       setPath(selectedPath);
     }
-    await AsyncStorage.setItem(ONBOARDING_KEY, "true");
-    router.replace("/(tabs)");
+    await completeOnboarding();
+    // Route guard in _layout.tsx will auto-navigate to (tabs) reactively
   };
 
   const isNextDisabled = currentIndex === 1 && !selectedPath;

@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const ONBOARDING_KEY = "aurate_onboarding_complete";
 
 interface Profile {
   id: string;
@@ -18,23 +21,30 @@ interface AuthState {
   user: any | null;
   profile: Profile | null;
   loading: boolean;
+  onboardingComplete: boolean | null;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   setPath: (path: string) => void;
+  checkOnboarding: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   loading: true,
+  onboardingComplete: null,
 
   signUp: async (email, password, username) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username, display_name: username } },
+    });
     if (error) throw error;
     if (data.user) {
-      await supabase.from("profiles").insert({ id: data.user.id, username, display_name: username });
       set({ user: data.user });
       await get().fetchProfile();
     }
@@ -49,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, profile: null });
+    set({ user: null, profile: null, onboardingComplete: null });
   },
 
   fetchProfile: async () => {
@@ -61,5 +71,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setPath: (path) => {
     set((state) => ({ profile: state.profile ? { ...state.profile, current_path: path } : null }));
+  },
+
+  checkOnboarding: async () => {
+    const val = await AsyncStorage.getItem(ONBOARDING_KEY);
+    set({ onboardingComplete: val === "true" });
+  },
+
+  completeOnboarding: async () => {
+    await AsyncStorage.setItem(ONBOARDING_KEY, "true");
+    set({ onboardingComplete: true });
   },
 }));

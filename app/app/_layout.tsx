@@ -5,7 +5,6 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../src/lib/supabase";
 import { useAuthStore } from "../src/store/authStore";
 
@@ -14,8 +13,6 @@ export { ErrorBoundary } from "expo-router";
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
-
-const ONBOARDING_KEY = "aurate_onboarding_complete";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,10 +44,11 @@ function RootLayoutNav() {
   const segments = useSegments();
 
   const user = useAuthStore((s) => s.user);
+  const onboardingComplete = useAuthStore((s) => s.onboardingComplete);
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
+  const checkOnboarding = useAuthStore((s) => s.checkOnboarding);
 
   const [authReady, setAuthReady] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
   /* Listen for Supabase auth state changes */
   useEffect(() => {
@@ -64,7 +62,6 @@ function RootLayoutNav() {
       }
     );
 
-    // Also check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       useAuthStore.setState({ user: session?.user ?? null, loading: false });
       if (session?.user) {
@@ -78,44 +75,30 @@ function RootLayoutNav() {
 
   /* Check onboarding status */
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
-      setOnboardingDone(val === "true");
-    });
-  }, []);
+    checkOnboarding();
+  }, [user]);
 
   /* Route guard */
   useEffect(() => {
-    if (!authReady || onboardingDone === null) return;
+    if (!authReady || onboardingComplete === null) return;
 
     const inAuthGroup = segments[0] === "auth";
     const inOnboarding = segments[0] === "onboarding";
 
     if (!user) {
-      // Not signed in -> go to auth
       if (!inAuthGroup) {
         router.replace("/auth/signup");
       }
-    } else if (!onboardingDone) {
-      // Signed in but hasn't completed onboarding
+    } else if (!onboardingComplete) {
       if (!inOnboarding) {
         router.replace("/onboarding");
       }
     } else {
-      // Signed in + onboarded -> main tabs
       if (inAuthGroup || inOnboarding) {
         router.replace("/(tabs)");
       }
     }
-  }, [user, authReady, onboardingDone, segments]);
-
-  // Re-check onboarding flag when user changes (e.g., after sign-up navigates to onboarding)
-  useEffect(() => {
-    if (user) {
-      AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
-        setOnboardingDone(val === "true");
-      });
-    }
-  }, [user]);
+  }, [user, authReady, onboardingComplete, segments]);
 
   return (
     <ThemeProvider value={DarkTheme}>
