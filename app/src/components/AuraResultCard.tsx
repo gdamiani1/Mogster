@@ -1,6 +1,17 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Share } from "react-native";
+import React, { useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Share,
+  Image,
+  Alert,
+  Platform,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import ViewShot from "react-native-view-shot";
+import * as MediaLibrary from "expo-media-library";
 import { COLORS, SPACING } from "../constants/theme";
 
 interface AuraResult {
@@ -13,9 +24,15 @@ interface AuraResult {
 
 interface AuraResultCardProps {
   result: AuraResult;
+  imageUri?: string | null;
 }
 
-export default function AuraResultCard({ result }: AuraResultCardProps) {
+export default function AuraResultCard({
+  result,
+  imageUri,
+}: AuraResultCardProps) {
+  const viewShotRef = useRef<ViewShot>(null);
+
   const handleShare = async () => {
     try {
       await Share.share({
@@ -26,120 +43,277 @@ export default function AuraResultCard({ result }: AuraResultCardProps) {
     }
   };
 
+  const handleSave = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Allow access to save to camera roll");
+        return;
+      }
+      if (!viewShotRef.current?.capture) {
+        Alert.alert("Error", "Could not capture the card");
+        return;
+      }
+      const uri = await viewShotRef.current.capture();
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert("Saved", "Your aura card has been saved to camera roll");
+    } catch (err) {
+      Alert.alert("Error", "Failed to save image");
+    }
+  };
+
+  const { primary, secondary } = result.aura_color;
+
   return (
-    <LinearGradient
-      colors={[result.aura_color.primary, result.aura_color.secondary]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.card}
-    >
-      <View style={styles.scoreContainer}>
-        <Text style={styles.score}>{result.aura_score}</Text>
-        <Text style={styles.scoreLabel}>AURA</Text>
-      </View>
-
-      <View style={styles.tierBadge}>
-        <Text style={styles.tierText}>{result.tier}</Text>
-      </View>
-
-      <Text style={styles.personalityRead}>{result.personality_read}</Text>
-
-      <View style={styles.roastBox}>
-        <Text style={styles.roastQuote}>&ldquo;</Text>
-        <Text style={styles.roastText}>{result.roast}</Text>
-        <Text style={styles.roastQuote}>&rdquo;</Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.shareButton}
-        onPress={handleShare}
-        activeOpacity={0.8}
+    <View style={styles.wrapper}>
+      <ViewShot
+        ref={viewShotRef}
+        options={{ format: "png", quality: 1 }}
+        style={styles.captureArea}
       >
-        <Text style={styles.shareButtonText}>Post the W</Text>
-      </TouchableOpacity>
-    </LinearGradient>
+        <View style={styles.card}>
+          {/* Photo with glowing gradient border */}
+          {imageUri && (
+            <View style={styles.photoSection}>
+              <View
+                style={[
+                  styles.photoGlowOuter,
+                  {
+                    shadowColor: primary,
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={[primary, secondary, primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.photoGradientBorder}
+                >
+                  <View style={styles.photoInner}>
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.photo}
+                    />
+                  </View>
+                </LinearGradient>
+              </View>
+            </View>
+          )}
+
+          {/* Score */}
+          <Text style={styles.score}>{result.aura_score}</Text>
+          <Text style={styles.scoreLabel}>AURA SCORE</Text>
+
+          {/* Tier badge */}
+          <View
+            style={[
+              styles.tierBadge,
+              { backgroundColor: `${primary}30` },
+            ]}
+          >
+            <Text style={[styles.tierText, { color: primary }]}>
+              {result.tier}
+            </Text>
+          </View>
+
+          {/* Roast quote card */}
+          <View style={styles.roastCard}>
+            <Text style={styles.roastQuoteMark}>{"\u201C"}</Text>
+            <Text style={styles.roastText}>{result.roast}</Text>
+            <Text style={styles.roastQuoteMarkEnd}>{"\u201D"}</Text>
+          </View>
+
+          {/* Personality read */}
+          <Text style={styles.personalityRead}>{result.personality_read}</Text>
+
+          {/* Watermark */}
+          <Text style={styles.watermark}>aurate</Text>
+        </View>
+      </ViewShot>
+
+      {/* Action buttons - outside capture area */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={handleShare}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionBtnIcon}>{"^"}</Text>
+          <Text style={styles.actionBtnText}>Share</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={handleSave}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionBtnIcon}>{"\u2193"}</Text>
+          <Text style={styles.actionBtnText}>Save</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
+const PHOTO_SIZE = 200;
+const BORDER_WIDTH = 4;
+
 const styles = StyleSheet.create({
-  card: {
+  wrapper: {
+    alignItems: "center",
+  },
+  captureArea: {
+    width: "100%",
     borderRadius: 24,
-    padding: SPACING.lg,
-    marginHorizontal: SPACING.md,
-    alignItems: "center",
+    overflow: "hidden",
   },
-  scoreContainer: {
+  card: {
+    backgroundColor: COLORS.bgCard,
+    borderRadius: 24,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
     alignItems: "center",
-    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
+
+  // ─── Photo ───
+  photoSection: {
+    marginBottom: SPACING.lg,
+  },
+  photoGlowOuter: {
+    borderRadius: (PHOTO_SIZE + BORDER_WIDTH * 2) / 2 + 4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 28,
+    elevation: 16,
+  },
+  photoGradientBorder: {
+    padding: BORDER_WIDTH,
+    borderRadius: (PHOTO_SIZE + BORDER_WIDTH * 2) / 2,
+  },
+  photoInner: {
+    borderRadius: PHOTO_SIZE / 2,
+    overflow: "hidden",
+    backgroundColor: COLORS.bg,
+  },
+  photo: {
+    width: PHOTO_SIZE,
+    height: PHOTO_SIZE,
+    borderRadius: PHOTO_SIZE / 2,
+  },
+
+  // ─── Score ───
   score: {
     fontSize: 72,
     fontWeight: "900",
     color: COLORS.textPrimary,
-    letterSpacing: -2,
+    letterSpacing: -3,
+    lineHeight: 78,
   },
   scoreLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.textMuted,
     letterSpacing: 4,
-    marginTop: -SPACING.xs,
+    marginTop: 2,
+    marginBottom: SPACING.md,
   },
+
+  // ─── Tier ───
   tierBadge: {
-    backgroundColor: "rgba(0,0,0,0.3)",
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: SPACING.lg,
   },
   tierText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
   },
-  personalityRead: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: "center",
-    marginBottom: SPACING.lg,
-  },
-  roastBox: {
-    backgroundColor: "rgba(0,0,0,0.2)",
+
+  // ─── Roast ───
+  roastCard: {
+    backgroundColor: COLORS.bgElevated,
     borderRadius: 16,
     padding: SPACING.md,
-    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
     width: "100%",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  roastQuote: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 24,
+  roastQuoteMark: {
+    color: COLORS.primary,
+    fontSize: 28,
     fontWeight: "700",
+    lineHeight: 30,
+    marginBottom: -4,
   },
   roastText: {
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 15,
     fontStyle: "italic",
+    lineHeight: 22,
+    letterSpacing: 0.2,
+  },
+  roastQuoteMarkEnd: {
+    color: COLORS.primary,
+    fontSize: 28,
+    fontWeight: "700",
+    lineHeight: 30,
+    textAlign: "right",
+    marginTop: -2,
+  },
+
+  // ─── Personality ───
+  personalityRead: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
     lineHeight: 20,
     textAlign: "center",
-    flex: 1,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    fontWeight: "400",
   },
-  shareButton: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md - 2,
-    borderRadius: 24,
+
+  // ─── Watermark ───
+  watermark: {
+    fontSize: 12,
+    fontWeight: "300",
+    color: COLORS.textMuted,
+    letterSpacing: 3,
+    textTransform: "lowercase",
+    opacity: 0.5,
+  },
+
+  // ─── Actions ───
+  actions: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    backgroundColor: COLORS.bgElevated,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: COLORS.border,
   },
-  shareButtonText: {
-    color: COLORS.textPrimary,
+  actionBtnIcon: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+  },
+  actionBtnText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
