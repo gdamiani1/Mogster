@@ -16,7 +16,7 @@ import { COLORS, SPACING } from "../constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
-const CARD_HEIGHT = CARD_WIDTH * 1.78; // 9:16 IG Story ratio — tall enough for all text
+const IMAGE_HEIGHT = CARD_WIDTH; // 1:1 square image
 
 interface AuraResult {
   aura_score: number;
@@ -68,53 +68,44 @@ export default function AuraResultCard({
 
   return (
     <View style={styles.wrapper}>
-      {/* Capturable card — photo background with overlay */}
       <ViewShot
         ref={viewShotRef}
         options={{ format: "png", quality: 1 }}
         style={styles.captureArea}
       >
         <View style={[styles.card, { borderColor: primary + "40" }]}>
-          {/* Photo as full background */}
-          {imageUri && (
-            <Image
-              source={{ uri: imageUri }}
-              style={styles.backgroundImage}
-              resizeMode="cover"
+          {/* Top: 1:1 Image */}
+          <View style={styles.imageSection}>
+            {imageUri && (
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.photo}
+                resizeMode="cover"
+              />
+            )}
+            {/* Gradient fade from image into overlay */}
+            <LinearGradient
+              colors={["transparent", "transparent", COLORS.bg]}
+              locations={[0, 0.6, 1]}
+              style={styles.imageFade}
             />
-          )}
-
-          {/* Gradient overlay — dark at bottom for text readability */}
-          <LinearGradient
-            colors={[
-              "transparent",
-              "transparent",
-              "rgba(0,0,0,0.4)",
-              "rgba(0,0,0,0.85)",
-              "rgba(0,0,0,0.95)",
-            ]}
-            locations={[0, 0.4, 0.55, 0.7, 0.85]}
-            style={styles.gradientOverlay}
-          />
-
-          {/* Top-left: Tier badge */}
-          <View style={styles.topRow}>
-            <View style={[styles.tierBadge, { backgroundColor: primary + "CC" }]}>
-              <Text style={styles.tierText}>{result.tier}</Text>
+            {/* Tier badge on image */}
+            <View style={styles.tierPosition}>
+              <View style={[styles.tierBadge, { backgroundColor: primary + "CC" }]}>
+                <Text style={styles.tierText}>{result.tier}</Text>
+              </View>
             </View>
           </View>
 
-          {/* Bottom content overlaid on gradient */}
-          <View style={styles.bottomContent}>
-            {/* Score */}
+          {/* Bottom: 60% overlay with score + text */}
+          <View style={styles.overlay}>
+            {/* Score + aura label */}
             <View style={styles.scoreRow}>
-              <Text style={[styles.score, { textShadowColor: primary }]}>
-                {result.aura_score}
-              </Text>
+              <Text style={[styles.score, { color: primary }]}>{result.aura_score}</Text>
               <Text style={styles.scoreLabel}>AURA</Text>
             </View>
 
-            {/* Aura glow line */}
+            {/* Glow line */}
             <LinearGradient
               colors={[primary, secondary, primary]}
               start={{ x: 0, y: 0 }}
@@ -123,14 +114,10 @@ export default function AuraResultCard({
             />
 
             {/* Roast */}
-            <Text style={styles.roast}>
-              "{result.roast}"
-            </Text>
+            <Text style={styles.roast}>"{result.roast}"</Text>
 
             {/* Personality read */}
-            <Text style={styles.personality}>
-              {result.personality_read}
-            </Text>
+            <Text style={styles.personality}>{result.personality_read}</Text>
 
             {/* Watermark */}
             <Text style={styles.watermark}>aurate</Text>
@@ -138,7 +125,7 @@ export default function AuraResultCard({
         </View>
       </ViewShot>
 
-      {/* Action buttons — outside capture */}
+      {/* Action buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: primary + "20", borderColor: primary + "40" }]}
@@ -172,43 +159,33 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    height: CARD_HEIGHT,
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: COLORS.bg,
     borderWidth: 1.5,
-    position: "relative",
   },
 
-  // Photo fills entire card
-  backgroundImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  // ─── Image section (top 40%) ───
+  imageSection: {
+    width: CARD_WIDTH,
+    height: IMAGE_HEIGHT,
+    position: "relative",
+  },
+  photo: {
     width: "100%",
     height: "100%",
   },
-
-  // Gradient overlay for text readability
-  gradientOverlay: {
+  imageFade: {
     position: "absolute",
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: IMAGE_HEIGHT * 0.4,
   },
-
-  // Top row
-  topRow: {
+  tierPosition: {
     position: "absolute",
     top: SPACING.md,
     left: SPACING.md,
-    right: SPACING.md,
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    zIndex: 2,
   },
   tierBadge: {
     paddingHorizontal: SPACING.md,
@@ -223,15 +200,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Bottom content
-  bottomContent: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.md,
-    zIndex: 2,
+  // ─── Overlay section (bottom 60%) ───
+  overlay: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    backgroundColor: COLORS.bg,
+    marginTop: -SPACING.xl, // overlap into the image fade
   },
 
   // Score
@@ -242,25 +217,22 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   score: {
-    fontSize: 64,
+    fontSize: 56,
     fontWeight: "900",
-    color: "#fff",
     letterSpacing: -2,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 30,
   },
   scoreLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.6)",
+    color: COLORS.textMuted,
     letterSpacing: 4,
   },
 
-  // Glow line separator
+  // Glow line
   glowLine: {
     height: 2,
     borderRadius: 1,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
     opacity: 0.8,
   },
 
@@ -269,26 +241,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     fontStyle: "italic",
-    color: "#fff",
-    lineHeight: 22,
-    marginBottom: SPACING.sm,
+    color: COLORS.textPrimary,
+    lineHeight: 23,
+    marginBottom: SPACING.md,
   },
 
   // Personality
   personality: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-    lineHeight: 18,
-    marginBottom: SPACING.sm,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+    marginBottom: SPACING.md,
   },
 
   // Watermark
   watermark: {
     fontSize: 11,
     fontWeight: "300",
-    color: "rgba(255,255,255,0.3)",
+    color: COLORS.textMuted,
     letterSpacing: 3,
     textAlign: "right",
+    opacity: 0.5,
   },
 
   // Actions
