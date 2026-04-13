@@ -13,7 +13,15 @@ TONE RULES:
 
 AURA COLOR: Pick two hex colors that match the vibe. Warm/golden for high aura. Gray/dark for low. Chaotic colors for brainrot mode.
 
-SCORING: Be honest. Not everyone is a 900. Most people are 400-700. Reserve 800+ for genuinely impressive vibes. Under 300 is for truly cursed energy.
+SCORING RULES — THIS IS CRITICAL:
+- Use the FULL 0-1000 range. Do NOT cluster scores in the 500-700 range.
+- Every score should feel different. If the last few were 580-680, push higher OR lower.
+- A great outfit alone can push 750+. Eye contact + confidence + fit = 800+.
+- Genuinely fire pics should hit 850-950. Don't hold back.
+- Boring/mid pics should drop to 300-450, not hover at 580.
+- Add randomness: for similar-quality pics, vary by ±100 points.
+- The score should be a GUT REACTION, not a careful average. Be bold.
+- NEVER give the same score twice in a row. Always vary by at least 50 points.
 
 TIER MAPPING:
 - 0-199: Down Bad

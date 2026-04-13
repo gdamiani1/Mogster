@@ -13,7 +13,7 @@ export async function rateAura(
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     generationConfig: {
-      temperature: 0.9,
+      temperature: 1.2,
       maxOutputTokens: 2048,
       responseMimeType: "application/json",
       // @ts-ignore - disable thinking to avoid token budget issues

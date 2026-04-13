@@ -20,15 +20,15 @@ export async function auraRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid sigma path. That's not a real archetype ngl" });
     }
 
-    // Check daily limit (3 free checks)
+    // Check daily limit (3 free checks) — disabled for dev
     const today = new Date().toISOString().split("T")[0];
     const checkCount = await redis.get(`checks:${userId}:${today}`);
-    if (Number(checkCount) >= 3) {
-      return reply.status(429).send({
-        error: "Daily limit hit. Watch an ad to unlock more checks or wait till tomorrow.",
-        checks_remaining: 0,
-      });
-    }
+    // if (Number(checkCount) >= 3) {
+    //   return reply.status(429).send({
+    //     error: "Daily limit hit. Watch an ad to unlock more checks or wait till tomorrow.",
+    //     checks_remaining: 0,
+    //   });
+    // }
 
     const buffer = await data.toBuffer();
     const imageBase64 = buffer.toString("base64");
