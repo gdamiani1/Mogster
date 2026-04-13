@@ -5,6 +5,7 @@ import { authRoutes } from "./routes/auth";
 import { auraRoutes } from "./routes/aura";
 import { leaderboardRoutes } from "./routes/leaderboard";
 import { friendRoutes } from "./routes/friends";
+import { dailyRoutes } from "./routes/daily";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.register(authRoutes);
 app.register(auraRoutes);
 app.register(leaderboardRoutes);
 app.register(friendRoutes);
+app.register(dailyRoutes);
 
 const start = async () => {
   try {
