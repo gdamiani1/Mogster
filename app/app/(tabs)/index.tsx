@@ -17,7 +17,8 @@ import { SIGMA_PATHS } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 import { supabase } from "../../src/lib/supabase";
 import { authedFetch } from "../../src/lib/api";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useNavigation } from "expo-router";
 import AuraResultCard from "../../src/components/AuraResultCard";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -302,6 +303,27 @@ export default function VibeCheckScreen() {
     }, [profile?.id])
   );
 
+  // Listen for tab press — when user taps Vibe Check while already on it AND
+  // a result is showing, reset and open the picker for a fresh check
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener("tabPress", (e: any) => {
+      if (isFocused && (result || imageUri)) {
+        e.preventDefault?.();
+        setResult(null);
+        setImageUri(null);
+        setShowingLatest(false);
+        setLatestCheckId(null);
+        setLatestIsSaved(false);
+        setError(null);
+        // Open picker after state has cleared
+        setTimeout(() => pickImage(), 50);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, isFocused, result, imageUri]);
+
   const handlePathSelect = (pathId: string) => {
     setSelectedPath(pathId);
     useAuthStore.getState().setPath(pathId);
@@ -311,51 +333,25 @@ export default function VibeCheckScreen() {
   if (result && !loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.resultContainer}>
-          <ScrollView
-            contentContainerStyle={styles.resultScroll}
-            showsVerticalScrollIndicator={false}
-          >
-            {showingLatest && (
-              <View style={styles.latestBanner}>
-                <Text style={styles.latestBannerText}>{"◉ LATEST AURA"}</Text>
-              </View>
-            )}
-            <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-              <AuraResultCard
-                result={result}
-                imageUri={imageUri}
-                isSaved={latestIsSaved}
-                onToggleSave={latestCheckId ? toggleLatestSave : undefined}
-              />
-            </Animated.View>
-          </ScrollView>
-
-          {/* Fixed bottom action bar */}
-          <View style={styles.bottomActionBar}>
-            <TouchableOpacity
-              style={styles.newCheckBtn}
-              onPress={() => {
-                setResult(null);
-                setImageUri(null);
-                setShowingLatest(false);
-                setLatestCheckId(null);
-                setLatestIsSaved(false);
-                pickImage();
-              }}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={[COLORS.primary, "#6D28D9"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.newCheckGradient}
-              >
-                <Text style={styles.newCheckText}>{"+ New Aura Check"}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.resultScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {showingLatest && (
+            <View style={styles.latestBanner}>
+              <Text style={styles.latestBannerText}>{"◉ LATEST AURA"}</Text>
+            </View>
+          )}
+          <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
+            <AuraResultCard
+              result={result}
+              imageUri={imageUri}
+              isSaved={latestIsSaved}
+              onToggleSave={latestCheckId ? toggleLatestSave : undefined}
+            />
+          </Animated.View>
+          <Text style={styles.tabHint}>tap the Vibe Check tab again for a new aura</Text>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -502,21 +498,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
   },
-  resultContainer: {
-    flex: 1,
-  },
   resultScroll: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  bottomActionBar: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
-    backgroundColor: COLORS.bg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border + "40",
+  },
+  tabHint: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: SPACING.md,
+    fontWeight: "500",
+    letterSpacing: 0.3,
   },
 
   // ─── Path pills ───
@@ -702,30 +695,4 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
-  // ─── New check CTA ───
-  newCheckBtn: {
-    alignSelf: "stretch",
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  newCheckGradient: {
-    paddingVertical: SPACING.md + 2,
-    alignItems: "center",
-  },
-  newCheckText: {
-    color: "#fff",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  dismissBtn: {
-    alignSelf: "center",
-    marginTop: SPACING.md,
-    padding: SPACING.sm,
-  },
-  dismissText: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
-  },
 });
