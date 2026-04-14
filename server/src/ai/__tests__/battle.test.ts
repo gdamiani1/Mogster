@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@google/generative-ai", () => {
-  return {
-    GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-      getGenerativeModel: () => ({
-        generateContent: vi.fn().mockResolvedValue({
+  class GoogleGenerativeAI {
+    getGenerativeModel() {
+      return {
+        generateContent: async () => ({
           response: {
             text: () =>
               JSON.stringify({
@@ -17,9 +17,10 @@ vi.mock("@google/generative-ai", () => {
               }),
           },
         }),
-      }),
-    })),
-  };
+      };
+    }
+  }
+  return { GoogleGenerativeAI };
 });
 
 import { generateFightNarrative } from "../battle";
