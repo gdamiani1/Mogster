@@ -63,7 +63,7 @@ export default function RewardedAdButton({
       {loading ? (
         <ActivityIndicator color="#fff" size="small" />
       ) : (
-        <Text style={styles.text}>Watch ad for +1 check \u{1F4FA}</Text>
+        <Text style={styles.text}>Watch ad for +1 check 📺</Text>
       )}
     </TouchableOpacity>
   );
