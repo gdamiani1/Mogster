@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,12 +18,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
 const IMAGE_HEIGHT = CARD_WIDTH; // 1:1 square image
 
+interface AuraStat {
+  label: string;
+  score: number;
+}
+
 interface AuraResult {
   aura_score: number;
   personality_read: string;
   roast: string;
   aura_color: { primary: string; secondary: string };
   tier: string;
+  stats?: AuraStat[];
 }
 
 interface AuraResultCardProps {
@@ -40,6 +46,8 @@ export default function AuraResultCard({
   onToggleSave,
 }: AuraResultCardProps) {
   const viewShotRef = useRef<ViewShot>(null);
+  const [view, setView] = useState<"roast" | "stats">("roast");
+  const hasStats = Array.isArray(result.stats) && result.stats.length > 0;
 
   const handleShare = async () => {
     try {
@@ -101,7 +109,7 @@ export default function AuraResultCard({
             </View>
           </View>
 
-          {/* Bottom: 60% overlay with score + text */}
+          {/* Bottom: overlay with score + (roast OR stats) */}
           <View style={styles.overlay}>
             {/* Score + aura label */}
             <View style={styles.scoreRow}>
@@ -117,17 +125,55 @@ export default function AuraResultCard({
               style={styles.glowLine}
             />
 
-            {/* Roast */}
-            <Text style={styles.roast}>"{result.roast}"</Text>
-
-            {/* Personality read */}
-            <Text style={styles.personality}>{result.personality_read}</Text>
+            {view === "roast" ? (
+              <>
+                <Text style={styles.roast}>"{result.roast}"</Text>
+                <Text style={styles.personality}>{result.personality_read}</Text>
+              </>
+            ) : (
+              <View style={styles.statsContainer}>
+                {(result.stats || []).map((stat) => (
+                  <View key={stat.label} style={styles.statRow}>
+                    <Text style={styles.statLabel}>{stat.label}</Text>
+                    <View style={styles.statBarBg}>
+                      <LinearGradient
+                        colors={[primary, secondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.statBarFill, { width: `${stat.score}%` }]}
+                      />
+                    </View>
+                    <Text style={[styles.statScore, { color: primary }]}>{stat.score}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {/* Watermark */}
             <Text style={styles.watermark}>aurate</Text>
           </View>
         </View>
       </ViewShot>
+
+      {/* View toggle */}
+      {hasStats && (
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, view === "roast" && { backgroundColor: primary + "25", borderColor: primary }]}
+            onPress={() => setView("roast")}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.toggleText, view === "roast" && { color: primary }]}>Roast</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, view === "stats" && { backgroundColor: primary + "25", borderColor: primary }]}
+            onPress={() => setView("stats")}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.toggleText, view === "stats" && { color: primary }]}>Stats</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Action buttons */}
       <View style={styles.actions}>
@@ -283,6 +329,46 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
 
+  // Stats
+  statsContainer: {
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  statLabel: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    width: 95,
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  statBarBg: {
+    flex: 1,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    overflow: "hidden",
+  },
+  statBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  statScore: {
+    fontSize: 13,
+    fontWeight: "800",
+    width: 28,
+    textAlign: "right",
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
   // Watermark
   watermark: {
     fontSize: 11,
@@ -293,11 +379,37 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
+  // View toggle
+  viewToggle: {
+    flexDirection: "row",
+    gap: SPACING.xs,
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: 12,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: "center",
+  },
+  toggleBtn: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  toggleText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+
   // Actions
   actions: {
     flexDirection: "row",
     gap: SPACING.sm,
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
     alignItems: "center",
   },
   actionBtn: {

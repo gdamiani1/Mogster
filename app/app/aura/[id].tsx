@@ -24,6 +24,7 @@ interface AuraCheck {
   aura_color: { primary: string; secondary: string; gradient_angle?: number };
   tier: string;
   is_saved: boolean;
+  stats?: Array<{ label: string; score: number }>;
   created_at: string;
 }
 
@@ -117,6 +118,7 @@ export default function AuraDetailScreen() {
             roast: check.roast,
             aura_color: check.aura_color,
             tier: check.tier,
+            stats: check.stats,
           }}
           imageUri={check.image_url}
         />

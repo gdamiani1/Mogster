@@ -70,6 +70,7 @@ export async function auraRoutes(app: FastifyInstance) {
         roast: result.roast,
         aura_color: result.aura_color,
         tier: result.tier,
+        stats: result.stats,
       })
       .select()
       .single();

@@ -62,5 +62,12 @@ export async function rateAura(
   else if (parsed.aura_score >= 200) parsed.tier = "NPC";
   else parsed.tier = "Down Bad";
 
+  // Validate stats — clamp each to 0-100 and ensure it's an array of 5
+  if (!Array.isArray(parsed.stats)) parsed.stats = [];
+  parsed.stats = parsed.stats.slice(0, 5).map((s: any) => ({
+    label: String(s.label || "Stat"),
+    score: Math.max(0, Math.min(100, Math.round(Number(s.score) || 0))),
+  }));
+
   return parsed;
 }

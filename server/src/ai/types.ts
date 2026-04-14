@@ -7,6 +7,11 @@ export type SigmaPath =
   | "brainrot_mode"
   | "sigma_grindset";
 
+export interface AuraStat {
+  label: string;
+  score: number; // 0-100
+}
+
 export interface AuraResult {
   aura_score: number;
   personality_read: string;
@@ -17,6 +22,7 @@ export interface AuraResult {
     gradient_angle: number;
   };
   tier: string;
+  stats: AuraStat[];
 }
 
 export const SIGMA_PATHS: Record<SigmaPath, { label: string; description: string }> = {

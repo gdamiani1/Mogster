@@ -34,12 +34,18 @@ const LOADING_MESSAGES = [
   "Quantifying the drip...",
 ];
 
+interface AuraStat {
+  label: string;
+  score: number;
+}
+
 interface AuraResult {
   aura_score: number;
   personality_read: string;
   roast: string;
   aura_color: { primary: string; secondary: string };
   tier: string;
+  stats?: AuraStat[];
 }
 
 async function checkAura(
@@ -267,6 +273,7 @@ export default function VibeCheckScreen() {
           roast: latest.roast,
           aura_color: latest.aura_color,
           tier: latest.tier,
+          stats: latest.stats,
         });
         setImageUri(latest.image_url);
         setLatestCheckId(latest.id);
