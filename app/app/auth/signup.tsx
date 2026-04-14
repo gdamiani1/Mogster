@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { Link } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
-import { COLORS, SPACING } from "../../src/constants/theme";
+import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
+import Wordmark from "../../src/components/design/Wordmark";
 
 const BRAINROT_ERRORS: Record<string, string> = {
   "User already registered": "Bro, that email's already taken. You're not that NPC.",
@@ -58,10 +59,12 @@ export default function SignUpScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.emoji}>{"🌀"}</Text>
-        <Text style={styles.header}>Begin your Aura Origin Story</Text>
+        <View style={{ marginBottom: SPACING.xl }}>
+          <Wordmark size={56} />
+        </View>
+        <Text style={styles.header}>BEGIN YOUR{"\n"}AURA ORIGIN STORY</Text>
         <Text style={styles.sub}>
-          Create your account and start the grind
+          CREATE YOUR ACCOUNT · START THE GRIND
         </Text>
 
         {error ? (
@@ -143,16 +146,20 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 48, textAlign: "center", marginBottom: SPACING.md },
   header: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontFamily: FONTS.display,
+    fontSize: 40,
+    lineHeight: 36,
     color: COLORS.textPrimary,
-    textAlign: "center",
+    textAlign: "left",
+    letterSpacing: -1,
     marginBottom: SPACING.sm,
   },
   sub: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: "center",
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textAlign: "left",
+    letterSpacing: 2,
     marginBottom: SPACING.xl,
   },
   errorBox: {

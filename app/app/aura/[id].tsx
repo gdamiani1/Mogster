@@ -121,6 +121,8 @@ export default function AuraDetailScreen() {
             stats: check.stats,
           }}
           imageUri={check.image_url}
+          sigmaPath={check.sigma_path}
+          username={profile?.username}
         />
       </ScrollView>
     </SafeAreaView>
