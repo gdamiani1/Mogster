@@ -1,6 +1,12 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import { Anton_400Regular } from "@expo-google-fonts/anton";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
+import { Bungee_400Regular } from "@expo-google-fonts/bungee";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
@@ -19,6 +25,10 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    Anton_400Regular,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_700Bold,
+    Bungee_400Regular,
     ...FontAwesome.font,
   });
 

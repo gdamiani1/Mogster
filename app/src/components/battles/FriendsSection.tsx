@@ -10,11 +10,11 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { COLORS, SPACING } from "../../src/constants/theme";
-import { getTierForScore } from "../../src/constants/tiers";
-import { useAuthStore } from "../../src/store/authStore";
-import { authedFetch } from "../../src/lib/api";
+import { useRouter } from "expo-router";
+import { COLORS, SPACING } from "../../constants/theme";
+import { getTierForScore } from "../../constants/tiers";
+import { useAuthStore } from "../../store/authStore";
+import { authedFetch } from "../../lib/api";
 
 interface Friend {
   id: string;
@@ -33,7 +33,8 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export default function CircleScreen() {
+export default function FriendsSection() {
+  const router = useRouter();
   const { profile } = useAuthStore();
   const [searchText, setSearchText] = useState("");
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -114,6 +115,10 @@ export default function CircleScreen() {
     }
   };
 
+  const challenge = (friend: Friend) => {
+    router.push(`/battles/challenge/${friend.id}?friendUsername=${friend.username}` as any);
+  };
+
   const renderFriend = ({ item }: { item: Friend }) => {
     const tier = getTierForScore(item.peak_aura);
     const color = item.avatar_color || COLORS.primary;
@@ -130,6 +135,9 @@ export default function CircleScreen() {
           </View>
         </View>
         <Text style={styles.friendScore}>{item.peak_aura}</Text>
+        <TouchableOpacity style={styles.challengeBtn} onPress={() => challenge(item)}>
+          <Text style={styles.challengeText}>⚔</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -161,17 +169,14 @@ export default function CircleScreen() {
 
   if (!profile) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>Sign in to build your circle, king</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>Sign in to build your circle, king</Text>
+      </View>
     );
   }
 
   const ListHeader = () => (
     <View>
-      {/* Search + Link Up */}
       <View style={styles.searchRow}>
         <TextInput
           style={styles.searchInput}
@@ -191,7 +196,6 @@ export default function CircleScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Pending Requests */}
       {pending.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>
@@ -203,70 +207,50 @@ export default function CircleScreen() {
         </View>
       )}
 
-      {/* Circle header */}
       <Text style={styles.sectionHeader}>Your Circle</Text>
     </View>
   );
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Text style={styles.header}>Your Circle</Text>
-      <Text style={styles.subtitle}>The squad that mogs together stays together</Text>
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
+      </View>
+    );
+  }
 
-      {loading && !refreshing ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={friends}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={ListHeader}
-          renderItem={renderFriend}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={COLORS.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>{"◐◑"}</Text>
-              <Text style={styles.emptyText}>
-                Your circle is empty. Link up with friends to compare auras.
-              </Text>
-            </View>
-          }
+  return (
+    <FlatList
+      data={friends}
+      keyExtractor={(item) => item.id}
+      ListHeaderComponent={ListHeader}
+      renderItem={renderFriend}
+      contentContainerStyle={styles.list}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={COLORS.primary}
         />
-      )}
-    </SafeAreaView>
+      }
+      ListEmptyComponent={
+        <View style={styles.empty}>
+          <Text style={styles.emptyEmoji}>{"◐◑"}</Text>
+          <Text style={styles.emptyText}>
+            Your circle is empty. Link up with friends to compare auras.
+          </Text>
+        </View>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  header: {
-    color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: "900",
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: SPACING.xxl,
   },
   searchRow: {
     flexDirection: "row",
@@ -311,7 +295,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     marginTop: SPACING.sm,
   },
-  // Friend row
   friendRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -360,8 +343,19 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 18,
     fontWeight: "800",
+    marginRight: SPACING.sm,
   },
-  // Pending row
+  challengeBtn: {
+    backgroundColor: COLORS.primary + "25",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  challengeText: {
+    fontSize: 18,
+  },
   pendingRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -12,11 +12,13 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import ViewShot from "react-native-view-shot";
 import * as MediaLibrary from "expo-media-library";
-import { COLORS, SPACING } from "../constants/theme";
+import { COLORS, SPACING, FONTS } from "../constants/theme";
+import GrainOverlay from "./design/GrainOverlay";
+import CropMarks from "./design/CropMarks";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
-const IMAGE_HEIGHT = CARD_WIDTH; // 1:1 square image
+const CARD_HEIGHT = Math.round(CARD_WIDTH * (16 / 9)); // 9:16 card ratio
 
 interface AuraStat {
   label: string;
@@ -35,19 +37,67 @@ interface AuraResult {
 interface AuraResultCardProps {
   result: AuraResult;
   imageUri?: string | null;
+  sigmaPath?: string;
+  username?: string;
   isSaved?: boolean;
   onToggleSave?: () => void;
+}
+
+// Tier color mapping — each tier gets its own treatment
+function getTierTreatment(tier: string): {
+  color: string;
+  label: string;
+} {
+  const upper = tier.toUpperCase();
+  if (upper.includes("SKIBIDI")) return { color: "#FFFFFF", label: "SKIBIDI LEGEND" };
+  if (upper.includes("MOG GOD")) return { color: COLORS.primary, label: "MOG GOD ✦" };
+  if (upper.includes("SIGMA")) return { color: COLORS.primary, label: "SIGMA" };
+  if (upper.includes("HIM") || upper.includes("HER")) return { color: COLORS.primary, label: "HIM / HER" };
+  if (upper.includes("COOK")) return { color: "#FFB84D", label: "COOKING" };
+  if (upper.includes("6") || upper.includes("SEVEN")) return { color: "#C9A14A", label: "SIX — SEVEN" };
+  if (upper.includes("NPC")) return { color: "#8A8878", label: "NPC" };
+  return { color: "#6B6B5E", label: "DOWN BAD" };
+}
+
+// Pretty-print sigma path for stamp
+function pathStamp(path?: string): string {
+  if (!path) return "◉ AURAMAXXING";
+  const map: Record<string, string> = {
+    auramaxxing: "◉ AURAMAXXING",
+    looksmaxxing: "◆ LOOKSMAXXING",
+    mogger_mode: "👁 MOGGER MODE",
+    rizzmaxxing: "♥ RIZZMAXXING",
+    statusmaxxing: "$ STATUSMAXXING",
+    brainrot_mode: "✦ BRAINROT MODE",
+    sigma_grindset: "▲ SIGMA GRIND",
+  };
+  return map[path] ?? path.toUpperCase();
+}
+
+function issueNumber(score: number): string {
+  // Deterministic 5-digit issue # from score + date
+  const day = new Date();
+  const seed = score + day.getDate() * 37 + day.getMonth() * 101;
+  return `#${String(seed).padStart(5, "0")}`;
+}
+
+function todayStamp(): string {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}.${String(d.getFullYear()).slice(2)}`;
 }
 
 export default function AuraResultCard({
   result,
   imageUri,
+  sigmaPath,
+  username,
   isSaved,
   onToggleSave,
 }: AuraResultCardProps) {
   const viewShotRef = useRef<ViewShot>(null);
   const [view, setView] = useState<"roast" | "stats">("roast");
   const hasStats = Array.isArray(result.stats) && result.stats.length > 0;
+  const tierTreatment = getTierTreatment(result.tier);
 
   const handleShare = async () => {
     try {
@@ -55,7 +105,7 @@ export default function AuraResultCard({
       const uri = await viewShotRef.current.capture();
       await Share.share({
         url: uri,
-        message: `I scored ${result.aura_score} aura (${result.tier}) on Mogster\n\n"${result.roast}"`,
+        message: `I scored ${result.aura_score} on Mogster — ${result.tier}\n\n"${result.roast}"`,
       });
     } catch (_) {}
   };
@@ -64,7 +114,7 @@ export default function AuraResultCard({
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Need access", "Allow camera roll to download your aura card fr");
+        Alert.alert("Need access", "Allow camera roll to download the card");
         return;
       }
       if (!viewShotRef.current?.capture) return;
@@ -72,139 +122,170 @@ export default function AuraResultCard({
       await MediaLibrary.saveToLibraryAsync(uri);
       Alert.alert("W secured", "Card downloaded to camera roll");
     } catch (err) {
-      Alert.alert("L detected", "Failed to download. Try again ngl");
+      Alert.alert("L detected", "Failed to download");
     }
   };
 
-  const { primary, secondary } = result.aura_color;
-
   return (
     <View style={styles.wrapper}>
+      {/* ─── CAPTURABLE CARD ─── */}
       <ViewShot
         ref={viewShotRef}
         options={{ format: "png", quality: 1 }}
         style={styles.captureArea}
       >
-        <View style={[styles.card, { borderColor: primary + "40" }]}>
-          {/* Top: 1:1 Image */}
-          <View style={styles.imageSection}>
-            {imageUri && (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.photo}
-                resizeMode="cover"
-              />
-            )}
-            {/* Gradient fade from image into overlay */}
-            <LinearGradient
-              colors={["transparent", "rgba(10,10,15,0.3)", "rgba(10,10,15,0.8)", "rgba(10,10,15,0.95)"]}
-              locations={[0, 0.4, 0.7, 1]}
-              style={styles.imageFade}
+        <View style={styles.card}>
+          {/* Photo as background */}
+          {imageUri && (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.photo}
+              resizeMode="cover"
             />
-            {/* Tier badge on image */}
-            <View style={styles.tierPosition}>
-              <View style={[styles.tierBadge, { backgroundColor: primary + "CC" }]}>
-                <Text style={styles.tierText}>{result.tier}</Text>
-              </View>
+          )}
+
+          {/* Gradient fade — transparent top, solid ink at bottom */}
+          <LinearGradient
+            colors={[
+              "transparent",
+              "transparent",
+              "rgba(10,10,10,0.65)",
+              "rgba(10,10,10,0.95)",
+              "rgba(10,10,10,0.99)",
+            ]}
+            locations={[0, 0.25, 0.55, 0.8, 1]}
+            style={styles.gradient}
+          />
+
+          {/* Grain overlay */}
+          <GrainOverlay opacity={0.06} />
+
+          {/* Crop registration marks */}
+          <CropMarks color={COLORS.primary} size={18} inset={14} opacity={0.5} />
+
+          {/* Top metadata strip */}
+          <View style={styles.topStrip}>
+            <View style={styles.pathStamp}>
+              <Text style={styles.pathStampText}>{pathStamp(sigmaPath)}</Text>
+            </View>
+            <View style={styles.issueStamp}>
+              <Text style={styles.issueNumber}>{issueNumber(result.aura_score)}</Text>
+              <Text style={styles.issueDate}>{todayStamp()}</Text>
             </View>
           </View>
 
-          {/* Bottom: overlay with score + (roast OR stats) */}
-          <View style={styles.overlay}>
-            {/* Score + aura label */}
-            <View style={styles.scoreRow}>
-              <Text style={[styles.score, { color: primary }]}>{result.aura_score}</Text>
-              <Text style={styles.scoreLabel}>AURA</Text>
+          {/* Bottom editorial block */}
+          <View style={styles.bottomBlock}>
+            {/* Tier label with hairline */}
+            <View style={styles.tierRow}>
+              <Text style={[styles.tierLabel, { color: tierTreatment.color }]}>
+                {tierTreatment.label}
+              </Text>
+              <View style={[styles.tierLine, { backgroundColor: tierTreatment.color }]} />
             </View>
 
-            {/* Glow line */}
-            <LinearGradient
-              colors={[primary, secondary, primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.glowLine}
-            />
+            {/* MEGA SCORE */}
+            <View style={styles.scoreRow}>
+              <Text style={[styles.megaScore, { color: tierTreatment.color }]}>
+                {result.aura_score}
+              </Text>
+              <Text style={styles.auraTag}>AURA</Text>
+            </View>
 
+            {/* Content swap: roast or stats */}
             {view === "roast" ? (
-              <>
-                <Text style={styles.roast}>"{result.roast}"</Text>
-                <Text style={styles.personality}>{result.personality_read}</Text>
-              </>
+              <View style={styles.roastBlock}>
+                <Text style={styles.roast}>
+                  <Text style={styles.quoteMark}>" </Text>
+                  {result.roast.toUpperCase()}
+                  <Text style={styles.quoteMark}> "</Text>
+                </Text>
+              </View>
             ) : (
-              <View style={styles.statsContainer}>
+              <View style={styles.statsBlock}>
                 {(result.stats || []).map((stat) => (
                   <View key={stat.label} style={styles.statRow}>
-                    <Text style={styles.statLabel}>{stat.label}</Text>
+                    <Text style={styles.statLabel}>{stat.label.toUpperCase()}</Text>
                     <View style={styles.statBarBg}>
-                      <LinearGradient
-                        colors={[primary, secondary]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.statBarFill, { width: `${stat.score}%` }]}
+                      <View
+                        style={[
+                          styles.statBarFill,
+                          { width: `${stat.score}%`, backgroundColor: tierTreatment.color },
+                        ]}
                       />
                     </View>
-                    <Text style={[styles.statScore, { color: primary }]}>{stat.score}</Text>
+                    <Text style={[styles.statVal, { color: tierTreatment.color }]}>
+                      {stat.score}
+                    </Text>
                   </View>
                 ))}
               </View>
             )}
 
-            {/* Watermark */}
-            <Text style={styles.watermark}>mogster</Text>
+            {/* Footer: username + brand strip */}
+            <View style={styles.footer}>
+              <Text style={styles.footerUser}>{username ? `@${username}` : ""}</Text>
+              <Text style={styles.footerBrand}>MOGSTER / ISSUE 01</Text>
+            </View>
           </View>
         </View>
       </ViewShot>
 
-      {/* View toggle */}
+      {/* ─── VIEW TOGGLE ─── */}
       {hasStats && (
         <View style={styles.viewToggle}>
           <TouchableOpacity
-            style={[styles.toggleBtn, view === "roast" && { backgroundColor: primary + "25", borderColor: primary }]}
+            style={[styles.toggleBtn, view === "roast" && styles.toggleBtnActive]}
             onPress={() => setView("roast")}
             activeOpacity={0.7}
           >
-            <Text style={[styles.toggleText, view === "roast" && { color: primary }]}>Roast</Text>
+            <Text style={[styles.toggleText, view === "roast" && styles.toggleTextActive]}>
+              ROAST
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.toggleBtn, view === "stats" && { backgroundColor: primary + "25", borderColor: primary }]}
+            style={[styles.toggleBtn, view === "stats" && styles.toggleBtnActive]}
             onPress={() => setView("stats")}
             activeOpacity={0.7}
           >
-            <Text style={[styles.toggleText, view === "stats" && { color: primary }]}>Stats</Text>
+            <Text style={[styles.toggleText, view === "stats" && styles.toggleTextActive]}>
+              STATS
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Action buttons */}
+      {/* ─── ACTION BUTTONS ─── */}
       <View style={styles.actions}>
         {onToggleSave && (
           <TouchableOpacity
             style={[
               styles.iconBtn,
-              isSaved && { backgroundColor: COLORS.warning + "20", borderColor: COLORS.warning + "60" },
+              isSaved && { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
             ]}
             onPress={onToggleSave}
             activeOpacity={0.7}
           >
-            <Text style={[styles.iconBtnIcon, { color: isSaved ? COLORS.warning : COLORS.textSecondary }]}>
+            <Text
+              style={[
+                styles.iconBtnIcon,
+                { color: isSaved ? COLORS.bg : COLORS.textSecondary },
+              ]}
+            >
               {isSaved ? "★" : "☆"}
             </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: primary + "20", borderColor: primary + "40" }]}
+          style={[styles.actionBtn, styles.primaryBtn]}
           onPress={handleShare}
           activeOpacity={0.8}
         >
-          <Text style={[styles.actionIcon, { color: primary }]}>{"↗"}</Text>
-          <Text style={[styles.actionText, { color: primary }]}>Share</Text>
+          <Text style={styles.primaryBtnIcon}>↗</Text>
+          <Text style={styles.primaryBtnText}>SHARE</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={handleDownload}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.iconBtnIcon, { color: COLORS.textSecondary }]}>{"↓"}</Text>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} activeOpacity={0.8}>
+          <Text style={[styles.iconBtnIcon, { color: COLORS.textSecondary }]}>↓</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -212,240 +293,268 @@ export default function AuraResultCard({
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    alignItems: "center",
-  },
+  wrapper: { alignItems: "center" },
+
   captureArea: {
     width: CARD_WIDTH,
-    borderRadius: 20,
     overflow: "hidden",
-  },
-  card: {
-    width: CARD_WIDTH,
-    borderRadius: 20,
-    overflow: "hidden",
-    backgroundColor: COLORS.bg,
-    borderWidth: 1.5,
   },
 
-  // ─── Image section (top 40%) ───
-  imageSection: {
+  card: {
     width: CARD_WIDTH,
-    height: IMAGE_HEIGHT,
+    height: CARD_HEIGHT,
+    backgroundColor: COLORS.bgCard,
     position: "relative",
+    overflow: "hidden",
   },
+
   photo: {
+    position: "absolute",
+    inset: 0,
     width: "100%",
     height: "100%",
   },
-  imageFade: {
+
+  gradient: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: IMAGE_HEIGHT * 0.5,
+    inset: 0,
+    width: "100%",
+    height: "100%",
   },
-  tierPosition: {
+
+  // ─── Top strip ───
+  topStrip: {
     position: "absolute",
-    top: SPACING.md,
-    left: SPACING.md,
+    top: SPACING.lg + 4,
+    left: SPACING.lg + 4,
+    right: SPACING.lg + 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    zIndex: 4,
   },
-  tierBadge: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-    borderRadius: 12,
+  pathStamp: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    transform: [{ rotate: "-2deg" }],
   },
-  tierText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 1,
+  pathStampText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
+    color: COLORS.bg,
+    letterSpacing: 1.2,
+  },
+  issueStamp: {
+    alignItems: "flex-end",
+  },
+  issueNumber: {
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: COLORS.primary,
+  },
+  issueDate: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: COLORS.primary,
+    opacity: 0.7,
+  },
+
+  // ─── Bottom block ───
+  bottomBlock: {
+    position: "absolute",
+    bottom: SPACING.lg,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    zIndex: 4,
+  },
+  tierRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: -4,
+  },
+  tierLabel: {
+    fontFamily: FONTS.display,
+    fontSize: 14,
+    letterSpacing: 2,
     textTransform: "uppercase",
   },
-
-  // ─── Overlay section (bottom 60%) ───
-  overlay: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.lg,
-    backgroundColor: "transparent",
-    marginTop: -(IMAGE_HEIGHT * 0.3),
+  tierLine: {
+    flex: 1,
+    height: 1,
+    opacity: 0.3,
   },
 
-  // Score
+  // MEGA SCORE
   scoreRow: {
     flexDirection: "row",
-    alignItems: "baseline",
-    gap: SPACING.sm,
-    marginBottom: SPACING.xs,
+    alignItems: "flex-end",
+    gap: 8,
+    marginBottom: SPACING.sm,
   },
-  score: {
-    fontSize: 56,
-    fontWeight: "900",
-    letterSpacing: -2,
-    textShadowColor: "rgba(0,0,0,0.9)",
+  megaScore: {
+    fontFamily: FONTS.display,
+    fontSize: 128,
+    lineHeight: 112,
+    letterSpacing: -5,
+    textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
-  },
-  scoreLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 4,
-    textShadowColor: "rgba(0,0,0,0.8)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-
-  // Glow line
-  glowLine: {
-    height: 2,
-    borderRadius: 1,
-    marginBottom: SPACING.md,
-    opacity: 0.8,
-  },
-
-  // Roast
-  roast: {
-    fontSize: 16,
-    fontWeight: "700",
-    fontStyle: "italic",
-    color: "#fff",
-    lineHeight: 23,
-    marginBottom: SPACING.md,
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
   },
-
-  // Personality
-  personality: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.8)",
-    lineHeight: 19,
-    marginBottom: SPACING.md,
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+  auraTag: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
+    color: COLORS.primary,
+    letterSpacing: 2,
+    paddingBottom: 14,
   },
 
-  // Stats
-  statsContainer: {
-    marginBottom: SPACING.md,
-    gap: SPACING.sm,
+  // ─── Roast block ───
+  roastBlock: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(255, 214, 10, 0.2)",
+    paddingVertical: 10,
+    marginBottom: SPACING.sm,
+  },
+  roast: {
+    fontFamily: FONTS.display,
+    fontSize: 15,
+    lineHeight: 18,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.2,
+  },
+  quoteMark: {
+    color: COLORS.primary,
+    fontSize: 18,
+  },
+
+  // ─── Stats block ───
+  statsBlock: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(255, 214, 10, 0.2)",
+    paddingVertical: 10,
+    marginBottom: SPACING.sm,
+    gap: 5,
   },
   statRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING.sm,
+    gap: 8,
   },
   statLabel: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-    width: 95,
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: "rgba(245,241,230,0.65)",
+    letterSpacing: 0.8,
+    width: 84,
   },
   statBarBg: {
     flex: 1,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    overflow: "hidden",
+    height: 5,
+    backgroundColor: "rgba(255, 214, 10, 0.1)",
   },
   statBarFill: {
     height: "100%",
-    borderRadius: 4,
   },
-  statScore: {
-    fontSize: 13,
-    fontWeight: "800",
-    width: 28,
-    textAlign: "right",
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-
-  // Watermark
-  watermark: {
+  statVal: {
+    fontFamily: FONTS.monoBold,
     fontSize: 11,
-    fontWeight: "300",
-    color: COLORS.textMuted,
-    letterSpacing: 3,
+    width: 24,
     textAlign: "right",
-    opacity: 0.5,
   },
 
-  // View toggle
+  // Footer
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  footerUser: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: "rgba(245,241,230,0.45)",
+    letterSpacing: 1.5,
+  },
+  footerBrand: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: "rgba(255, 214, 10, 0.5)",
+    letterSpacing: 1.5,
+  },
+
+  // ─── View toggle ───
   viewToggle: {
     flexDirection: "row",
-    gap: SPACING.xs,
     marginTop: SPACING.md,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 12,
-    padding: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
     alignSelf: "center",
   },
   toggleBtn: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "transparent",
+    paddingVertical: 10,
+  },
+  toggleBtnActive: {
+    backgroundColor: COLORS.primary,
   },
   toggleText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 11,
     color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    letterSpacing: 2,
+  },
+  toggleTextActive: {
+    color: COLORS.bg,
   },
 
-  // Actions
+  // ─── Actions ───
   actions: {
     flexDirection: "row",
     gap: SPACING.sm,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.md,
     alignItems: "center",
+    width: "100%",
   },
   actionBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: SPACING.sm,
-    backgroundColor: COLORS.bgElevated,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 12,
-    borderRadius: 20,
+    gap: 10,
+    paddingVertical: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  actionIcon: {
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  primaryBtnIcon: {
+    fontFamily: FONTS.monoBold,
     fontSize: 18,
-    fontWeight: "800",
+    color: COLORS.bg,
   },
-  actionText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
+  primaryBtnText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 13,
+    letterSpacing: 2.5,
+    color: COLORS.bg,
   },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.bgElevated,
+    width: 48,
+    height: 48,
     borderWidth: 1,
     borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: COLORS.bgCard,
   },
   iconBtnIcon: {
     fontSize: 22,
-    fontWeight: "700",
+    fontFamily: FONTS.monoBold,
   },
 });

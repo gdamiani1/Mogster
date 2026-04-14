@@ -353,6 +353,8 @@ export default function VibeCheckScreen() {
             <AuraResultCard
               result={result}
               imageUri={imageUri}
+              sigmaPath={selectedPath}
+              username={profile?.username}
               isSaved={latestIsSaved}
               onToggleSave={latestCheckId ? toggleLatestSave : undefined}
             />

@@ -49,10 +49,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="circle"
+        name="battles"
         options={{
-          title: 'Circle',
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          title: 'Battles',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bolt" color={color} />,
         }}
       />
     </Tabs>
