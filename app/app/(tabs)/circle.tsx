@@ -233,7 +233,7 @@ export default function CircleScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>{"👥"}</Text>
+              <Text style={styles.emptyEmoji}>{"◐◑"}</Text>
               <Text style={styles.emptyText}>
                 Your circle is empty. Link up with friends to compare auras.
               </Text>

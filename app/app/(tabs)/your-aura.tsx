@@ -192,7 +192,7 @@ export default function YourAuraScreen() {
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>{filter === "saved" ? "⭐" : "📸"}</Text>
+              <Text style={styles.emptyEmoji}>{filter === "saved" ? "★" : "◉"}</Text>
               <Text style={styles.emptyText}>
                 {filter === "saved"
                   ? "No saved cards yet. Tap the star on any aura check to save it."

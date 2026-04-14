@@ -51,7 +51,7 @@ export default function SignInScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.emoji}>{"🔮"}</Text>
+        <Text style={styles.emoji}>{"🌀"}</Text>
         <Text style={styles.header}>Welcome back.{"\n"}Your aura awaits.</Text>
         <Text style={styles.sub}>Sign in to continue the grind</Text>
 

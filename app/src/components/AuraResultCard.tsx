@@ -29,11 +29,15 @@ interface AuraResult {
 interface AuraResultCardProps {
   result: AuraResult;
   imageUri?: string | null;
+  isSaved?: boolean;
+  onToggleSave?: () => void;
 }
 
 export default function AuraResultCard({
   result,
   imageUri,
+  isSaved,
+  onToggleSave,
 }: AuraResultCardProps) {
   const viewShotRef = useRef<ViewShot>(null);
 
@@ -43,24 +47,24 @@ export default function AuraResultCard({
       const uri = await viewShotRef.current.capture();
       await Share.share({
         url: uri,
-        message: `I scored ${result.aura_score} aura (${result.tier}) on Aurate 🔮\n\n"${result.roast}"`,
+        message: `I scored ${result.aura_score} aura (${result.tier}) on Aurate\n\n"${result.roast}"`,
       });
     } catch (_) {}
   };
 
-  const handleSave = async () => {
+  const handleDownload = async () => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Need access", "Allow camera roll to save your aura card fr");
+        Alert.alert("Need access", "Allow camera roll to download your aura card fr");
         return;
       }
       if (!viewShotRef.current?.capture) return;
       const uri = await viewShotRef.current.capture();
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert("W", "Aura card saved to camera roll 🔮");
+      Alert.alert("W secured", "Card downloaded to camera roll");
     } catch (err) {
-      Alert.alert("L", "Failed to save. Try again ngl");
+      Alert.alert("L detected", "Failed to download. Try again ngl");
     }
   };
 
@@ -127,21 +131,34 @@ export default function AuraResultCard({
 
       {/* Action buttons */}
       <View style={styles.actions}>
+        {onToggleSave && (
+          <TouchableOpacity
+            style={[
+              styles.iconBtn,
+              isSaved && { backgroundColor: COLORS.warning + "20", borderColor: COLORS.warning + "60" },
+            ]}
+            onPress={onToggleSave}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.iconBtnIcon, { color: isSaved ? COLORS.warning : COLORS.textSecondary }]}>
+              {isSaved ? "★" : "☆"}
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: primary + "20", borderColor: primary + "40" }]}
           onPress={handleShare}
           activeOpacity={0.8}
         >
-          <Text style={styles.actionEmoji}>{"📤"}</Text>
+          <Text style={[styles.actionIcon, { color: primary }]}>{"↗"}</Text>
           <Text style={[styles.actionText, { color: primary }]}>Share</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={handleSave}
+          style={styles.iconBtn}
+          onPress={handleDownload}
           activeOpacity={0.8}
         >
-          <Text style={styles.actionEmoji}>{"💾"}</Text>
-          <Text style={styles.actionText}>Save</Text>
+          <Text style={[styles.iconBtnIcon, { color: COLORS.textSecondary }]}>{"↓"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -279,12 +296,15 @@ const styles = StyleSheet.create({
   // Actions
   actions: {
     flexDirection: "row",
-    gap: SPACING.md,
-    marginTop: SPACING.lg,
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    alignItems: "center",
   },
   actionBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: SPACING.sm,
     backgroundColor: COLORS.bgElevated,
     paddingHorizontal: SPACING.lg,
@@ -293,12 +313,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  actionEmoji: {
-    fontSize: 16,
+  actionIcon: {
+    fontSize: 18,
+    fontWeight: "800",
   },
   actionText: {
     color: COLORS.textPrimary,
     fontSize: 14,
+    fontWeight: "700",
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnIcon: {
+    fontSize: 22,
     fontWeight: "700",
   },
 });

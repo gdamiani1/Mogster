@@ -85,6 +85,8 @@ export default function VibeCheckScreen() {
   const [result, setResult] = useState<AuraResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showingLatest, setShowingLatest] = useState(false); // true = viewing saved latest, false = fresh check
+  const [latestCheckId, setLatestCheckId] = useState<string | null>(null);
+  const [latestIsSaved, setLatestIsSaved] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.4)).current;
@@ -230,6 +232,9 @@ export default function VibeCheckScreen() {
       const data = await checkAura(uri, selectedPath, session.access_token);
       setResult(data);
       setShowingLatest(false);
+      // Fresh checks aren't saved by default; capture id for the bookmark button
+      setLatestCheckId((data as any).check_id || null);
+      setLatestIsSaved(false);
     } catch (err: any) {
       setError(err.message || "Something went wrong no cap");
     } finally {
@@ -243,6 +248,8 @@ export default function VibeCheckScreen() {
     setError(null);
     setLoading(false);
     setShowingLatest(false);
+    setLatestCheckId(null);
+    setLatestIsSaved(false);
   };
 
   // Fetch the latest aura check from history and display it
@@ -261,10 +268,27 @@ export default function VibeCheckScreen() {
           tier: latest.tier,
         });
         setImageUri(latest.image_url);
+        setLatestCheckId(latest.id);
+        setLatestIsSaved(latest.is_saved === true);
         setShowingLatest(true);
       }
     } catch {
       // Silent fail — just show empty state
+    }
+  };
+
+  const toggleLatestSave = async () => {
+    if (!latestCheckId) return;
+    const newSaved = !latestIsSaved;
+    setLatestIsSaved(newSaved); // optimistic
+    try {
+      await authedFetch(`/aura/check/${latestCheckId}/save`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saved: newSaved }),
+      });
+    } catch {
+      setLatestIsSaved(!newSaved); // revert
     }
   };
 
@@ -287,47 +311,51 @@ export default function VibeCheckScreen() {
   if (result && !loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <ScrollView
-          contentContainerStyle={styles.resultScroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {showingLatest && (
-            <View style={styles.latestBanner}>
-              <Text style={styles.latestBannerText}>YOUR LATEST AURA</Text>
-            </View>
-          )}
-          <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-            <AuraResultCard result={result} imageUri={imageUri} />
-          </Animated.View>
-          <TouchableOpacity
-            style={styles.newCheckBtn}
-            onPress={() => {
-              setResult(null);
-              setImageUri(null);
-              setShowingLatest(false);
-              pickImage();
-            }}
-            activeOpacity={0.85}
+        <View style={styles.resultContainer}>
+          <ScrollView
+            contentContainerStyle={styles.resultScroll}
+            showsVerticalScrollIndicator={false}
           >
-            <LinearGradient
-              colors={[COLORS.primary, "#6D28D9"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.newCheckGradient}
-            >
-              <Text style={styles.newCheckText}>+ New Aura Check</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          {showingLatest && (
+            {showingLatest && (
+              <View style={styles.latestBanner}>
+                <Text style={styles.latestBannerText}>{"◉ LATEST AURA"}</Text>
+              </View>
+            )}
+            <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
+              <AuraResultCard
+                result={result}
+                imageUri={imageUri}
+                isSaved={latestIsSaved}
+                onToggleSave={latestCheckId ? toggleLatestSave : undefined}
+              />
+            </Animated.View>
+          </ScrollView>
+
+          {/* Fixed bottom action bar */}
+          <View style={styles.bottomActionBar}>
             <TouchableOpacity
-              style={styles.dismissBtn}
-              onPress={handleReset}
-              activeOpacity={0.7}
+              style={styles.newCheckBtn}
+              onPress={() => {
+                setResult(null);
+                setImageUri(null);
+                setShowingLatest(false);
+                setLatestCheckId(null);
+                setLatestIsSaved(false);
+                pickImage();
+              }}
+              activeOpacity={0.85}
             >
-              <Text style={styles.dismissText}>Dismiss</Text>
+              <LinearGradient
+                colors={[COLORS.primary, "#6D28D9"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.newCheckGradient}
+              >
+                <Text style={styles.newCheckText}>{"+ New Aura Check"}</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          )}
-        </ScrollView>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -445,7 +473,7 @@ export default function VibeCheckScreen() {
             onPress={pickImage}
             activeOpacity={0.7}
           >
-            <Text style={styles.bottomBtnIcon}>{"🖼"}</Text>
+            <Text style={styles.bottomBtnIcon}>{"⊞"}</Text>
             <Text style={styles.bottomBtnLabel}>Gallery</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -453,7 +481,7 @@ export default function VibeCheckScreen() {
             onPress={takePhoto}
             activeOpacity={0.7}
           >
-            <Text style={styles.bottomBtnIcon}>{"📷"}</Text>
+            <Text style={styles.bottomBtnIcon}>{"◉"}</Text>
             <Text style={styles.bottomBtnLabel}>Camera</Text>
           </TouchableOpacity>
         </View>
@@ -474,9 +502,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
   },
+  resultContainer: {
+    flex: 1,
+  },
   resultScroll: {
-    padding: SPACING.lg,
-    paddingBottom: 40,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  bottomActionBar: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    backgroundColor: COLORS.bg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border + "40",
   },
 
   // ─── Path pills ───
@@ -665,7 +705,6 @@ const styles = StyleSheet.create({
   // ─── New check CTA ───
   newCheckBtn: {
     alignSelf: "stretch",
-    marginTop: SPACING.xl,
     borderRadius: 20,
     overflow: "hidden",
   },

@@ -28,7 +28,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 function WelcomeScreen() {
   return (
     <View style={[styles.page, styles.center]}>
-      <Text style={styles.bigEmoji}>{"✨"}</Text>
+      <Text style={styles.bigEmoji}>{"🌀"}</Text>
       <Text style={styles.title}>Welcome to Aurate</Text>
       <Text style={styles.body}>
         The AI rates your aura.{"\n"}Are you HIM or are you mid?
@@ -85,7 +85,7 @@ function PathPickerScreen({
 function LaunchScreen() {
   return (
     <View style={[styles.page, styles.center]}>
-      <Text style={styles.bigEmoji}>{"📸"}</Text>
+      <Text style={styles.bigEmoji}>{"◉"}</Text>
       <Text style={styles.title}>Drop your first pic</Text>
       <Text style={styles.body}>Your aura origin story starts now.</Text>
     </View>

@@ -58,7 +58,7 @@ export default function SignUpScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.emoji}>{"✨"}</Text>
+        <Text style={styles.emoji}>{"🌀"}</Text>
         <Text style={styles.header}>Begin your Aura Origin Story</Text>
         <Text style={styles.sub}>
           Create your account and start the grind
