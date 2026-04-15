@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { COLORS, SPACING } from "../../src/constants/theme";
+import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
 import { SIGMA_PATHS } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 import { supabase } from "../../src/lib/supabase";
@@ -20,6 +20,7 @@ import { authedFetch } from "../../src/lib/api";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 import AuraResultCard from "../../src/components/AuraResultCard";
+import Wordmark from "../../src/components/design/Wordmark";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -409,60 +410,71 @@ export default function VibeCheckScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
-        {/* Path selector pills - top */}
-        <View style={styles.pathSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pathPillRow}
-          >
-            {SIGMA_PATHS.map((path) => {
-              const isSelected = path.id === selectedPath;
-              return (
-                <TouchableOpacity
-                  key={path.id}
-                  style={[
-                    styles.pathPill,
-                    isSelected && styles.pathPillSelected,
-                  ]}
-                  onPress={() => handlePathSelect(path.id)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.pathPillEmoji}>{path.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.pathPillText,
-                      isSelected && styles.pathPillTextSelected,
-                    ]}
-                  >
-                    {path.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+        {/* Editorial header */}
+        <View style={styles.headerRow}>
+          <Wordmark size={38} />
+          <View style={styles.metaRight}>
+            <Text style={styles.metaText}>ISSUE №01</Text>
+            <Text style={styles.metaTextAccent}>{todayStamp()}</Text>
+          </View>
         </View>
 
-        {/* Center CTA */}
-        <View style={styles.centerArea}>
+        <View style={styles.eyebrowRow}>
+          <View style={styles.eyebrowLine} />
+          <Text style={styles.eyebrow}>01 / PICK YOUR LENS</Text>
+        </View>
+
+        {/* Path grid — 2 cols, numbered, editorial */}
+        <View style={styles.pathGrid}>
+          {SIGMA_PATHS.map((path, idx) => {
+            const isSelected = path.id === selectedPath;
+            return (
+              <TouchableOpacity
+                key={path.id}
+                style={[styles.pathTile, isSelected && styles.pathTileActive]}
+                onPress={() => handlePathSelect(path.id)}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.pathNum,
+                    isSelected && { color: COLORS.bg, opacity: 0.6 },
+                  ]}
+                >
+                  {String(idx + 1).padStart(2, "0")}
+                </Text>
+                <Text
+                  style={[
+                    styles.pathName,
+                    isSelected && { color: COLORS.bg },
+                  ]}
+                >
+                  {path.label.toUpperCase()}
+                </Text>
+                {isSelected && <Text style={styles.pathStar}>★</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.eyebrowRow}>
+          <View style={styles.eyebrowLine} />
+          <Text style={styles.eyebrow}>02 / DROP THE PIC</Text>
+        </View>
+
+        {/* Big CTA */}
+        <View style={styles.ctaArea}>
           <TouchableOpacity
             onPress={pickImage}
             activeOpacity={0.85}
-            style={styles.ctaWrapper}
+            style={styles.ctaBlock}
           >
-            <Animated.View
-              style={[styles.ctaGlow, { opacity: glowAnim }]}
-            />
-            <LinearGradient
-              colors={[COLORS.primary, "#6D28D9"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.ctaButton}
-            >
-              <Text style={styles.ctaIcon}>{"+"}</Text>
-            </LinearGradient>
+            <Text style={styles.ctaHeadline}>GET{"\n"}COOKED.</Text>
+            <View style={styles.ctaMeta}>
+              <Text style={styles.ctaArrow}>→</Text>
+              <Text style={styles.ctaMetaText}>TAP · 3-5S TO RATE</Text>
+            </View>
           </TouchableOpacity>
-          <Text style={styles.ctaLabel}>tap to check your aura</Text>
 
           {error && (
             <View style={styles.errorBox}>
@@ -471,23 +483,28 @@ export default function VibeCheckScreen() {
           )}
         </View>
 
-        {/* Bottom action buttons */}
-        <View style={styles.bottomBar}>
+        {/* Bottom source selector */}
+        <View style={styles.sourceRow}>
           <TouchableOpacity
-            style={styles.bottomBtn}
+            style={styles.sourceBtn}
             onPress={pickImage}
             activeOpacity={0.7}
           >
-            <Text style={styles.bottomBtnIcon}>{"⊞"}</Text>
-            <Text style={styles.bottomBtnLabel}>Gallery</Text>
+            <View style={styles.sourceIcon}>
+              <View style={styles.sourceIconBox} />
+            </View>
+            <Text style={styles.sourceLabel}>GALLERY</Text>
           </TouchableOpacity>
+          <View style={styles.sourceDivider} />
           <TouchableOpacity
-            style={styles.bottomBtn}
+            style={styles.sourceBtn}
             onPress={takePhoto}
             activeOpacity={0.7}
           >
-            <Text style={styles.bottomBtnIcon}>{"◉"}</Text>
-            <Text style={styles.bottomBtnLabel}>Camera</Text>
+            <View style={styles.sourceIcon}>
+              <View style={styles.sourceIconCircle} />
+            </View>
+            <Text style={styles.sourceLabel}>CAMERA</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -495,8 +512,10 @@ export default function VibeCheckScreen() {
   );
 }
 
-const CTA_SIZE = 100;
-const GLOW_SIZE = CTA_SIZE + 40;
+function todayStamp(): string {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}.${String(d.getFullYear()).slice(2)}`;
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -505,7 +524,7 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    justifyContent: "space-between",
+    paddingHorizontal: SPACING.lg,
   },
   resultScroll: {
     paddingHorizontal: SPACING.lg,
@@ -513,131 +532,203 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.lg,
   },
   tabHint: {
+    fontFamily: FONTS.mono,
     color: COLORS.textMuted,
-    fontSize: 12,
+    fontSize: 10,
     textAlign: "center",
     marginTop: SPACING.md,
-    fontWeight: "500",
-    letterSpacing: 0.3,
+    letterSpacing: 1.5,
   },
 
-  // ─── Path pills ───
-  pathSection: {
+  // ─── Editorial header ───
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingTop: SPACING.md,
-    paddingBottom: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 214, 10, 0.15)",
   },
-  pathPillRow: {
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.sm,
+  metaRight: {
+    alignItems: "flex-end",
   },
-  pathPill: {
+  metaText: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: COLORS.textMuted,
+    letterSpacing: 2,
+  },
+  metaTextAccent: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
+    color: COLORS.primary,
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+
+  // ─── Eyebrow ───
+  eyebrowRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
-  pathPillSelected: {
-    backgroundColor: "rgba(139, 92, 246, 0.15)",
-    borderColor: COLORS.primary,
+  eyebrowLine: {
+    width: 24,
+    height: 1,
+    backgroundColor: COLORS.primary,
+    opacity: 0.6,
   },
-  pathPillEmoji: {
-    fontSize: 16,
-  },
-  pathPillText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textMuted,
-  },
-  pathPillTextSelected: {
+  eyebrow: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
     color: COLORS.primary,
-    fontWeight: "700",
+    letterSpacing: 2.5,
   },
 
-  // ─── Center CTA ───
-  centerArea: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  // ─── Path grid ───
+  pathGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  ctaWrapper: {
-    width: GLOW_SIZE,
-    height: GLOW_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
+  pathTile: {
+    width: "48.5%",
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    position: "relative",
   },
-  ctaGlow: {
-    position: "absolute",
-    width: GLOW_SIZE,
-    height: GLOW_SIZE,
-    borderRadius: GLOW_SIZE / 2,
+  pathTileActive: {
     backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
-  ctaButton: {
-    width: CTA_SIZE,
-    height: CTA_SIZE,
-    borderRadius: CTA_SIZE / 2,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  ctaIcon: {
-    fontSize: 40,
-    fontWeight: "300",
-    color: "#FFFFFF",
-    marginTop: -2,
-  },
-  ctaLabel: {
-    marginTop: SPACING.lg,
-    fontSize: 14,
-    fontWeight: "400",
+  pathNum: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
     color: COLORS.textMuted,
-    letterSpacing: 0.5,
+    letterSpacing: 1.5,
+    opacity: 0.7,
+  },
+  pathName: {
+    fontFamily: FONTS.display,
+    fontSize: 17,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.2,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  pathStar: {
+    position: "absolute",
+    top: 8,
+    right: 10,
+    fontSize: 12,
+    color: COLORS.bg,
+  },
+
+  // ─── CTA ───
+  ctaArea: {
+    marginTop: SPACING.md,
+  },
+  ctaBlock: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    position: "relative",
+  },
+  ctaHeadline: {
+    fontFamily: FONTS.display,
+    fontSize: 80,
+    lineHeight: 72,
+    color: COLORS.bg,
+    letterSpacing: -3,
+  },
+  ctaMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(10, 10, 10, 0.2)",
+  },
+  ctaArrow: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 22,
+    color: COLORS.bg,
+  },
+  ctaMetaText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
+    color: COLORS.bg,
+    letterSpacing: 2,
+  },
+
+  // ─── Source selector ───
+  sourceRow: {
+    flexDirection: "row",
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+  },
+  sourceBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+  },
+  sourceDivider: {
+    width: 1,
+    backgroundColor: COLORS.border,
+  },
+  sourceIcon: {
+    width: 14,
+    height: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sourceIconBox: {
+    width: 12,
+    height: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
+  },
+  sourceIconCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
+  },
+  sourceLabel: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    letterSpacing: 2,
   },
 
   // ─── Error ───
   errorBox: {
-    backgroundColor: "rgba(239,68,68,0.1)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 59, 48, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 59, 48, 0.3)",
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    marginTop: SPACING.md,
-    maxWidth: 280,
+    paddingVertical: 10,
+    marginTop: SPACING.sm,
   },
   errorText: {
+    fontFamily: FONTS.mono,
     color: COLORS.danger,
-    fontSize: 13,
-    textAlign: "center",
-  },
-
-  // ─── Bottom bar ───
-  bottomBar: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: SPACING.xl,
-    paddingBottom: SPACING.xl,
-    paddingTop: SPACING.md,
-  },
-  bottomBtn: {
-    alignItems: "center",
-    gap: 4,
-  },
-  bottomBtnIcon: {
-    fontSize: 24,
-  },
-  bottomBtnLabel: {
     fontSize: 11,
-    fontWeight: "500",
-    color: COLORS.textMuted,
-    letterSpacing: 0.3,
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
 
   // ─── Loading ───

@@ -61,15 +61,15 @@ function getTierTreatment(tier: string): {
 
 // Pretty-print sigma path for stamp
 function pathStamp(path?: string): string {
-  if (!path) return "◉ AURAMAXXING";
+  if (!path) return "• AURAMAXXING";
   const map: Record<string, string> = {
-    auramaxxing: "◉ AURAMAXXING",
-    looksmaxxing: "◆ LOOKSMAXXING",
-    mogger_mode: "👁 MOGGER MODE",
-    rizzmaxxing: "♥ RIZZMAXXING",
-    statusmaxxing: "$ STATUSMAXXING",
-    brainrot_mode: "✦ BRAINROT MODE",
-    sigma_grindset: "▲ SIGMA GRIND",
+    auramaxxing: "• AURAMAXXING",
+    looksmaxxing: "• LOOKSMAXXING",
+    mogger_mode: "• MOGGER MODE",
+    rizzmaxxing: "• RIZZMAXXING",
+    statusmaxxing: "• STATUSMAXXING",
+    brainrot_mode: "• BRAINROT MODE",
+    sigma_grindset: "• SIGMA GRIND",
   };
   return map[path] ?? path.toUpperCase();
 }
@@ -186,8 +186,12 @@ export default function AuraResultCard({
 
             {/* MEGA SCORE */}
             <View style={styles.scoreRow}>
-              <Text style={[styles.megaScore, { color: tierTreatment.color }]}>
-                {result.aura_score}
+              <Text
+                style={[styles.megaScore, { color: tierTreatment.color }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {String(result.aura_score)}
               </Text>
               <Text style={styles.auraTag}>AURA</Text>
             </View>
@@ -200,6 +204,11 @@ export default function AuraResultCard({
                   {result.roast.toUpperCase()}
                   <Text style={styles.quoteMark}> "</Text>
                 </Text>
+                {result.personality_read ? (
+                  <Text style={styles.personalityRead}>
+                    {result.personality_read}
+                  </Text>
+                ) : null}
               </View>
             ) : (
               <View style={styles.statsBlock}>
@@ -392,17 +401,18 @@ const styles = StyleSheet.create({
   scoreRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
+    gap: 12,
     marginBottom: SPACING.sm,
   },
   megaScore: {
     fontFamily: FONTS.display,
-    fontSize: 128,
-    lineHeight: 112,
-    letterSpacing: -5,
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    fontSize: 112,
+    lineHeight: 104,
+    letterSpacing: -2,
+    includeFontPadding: false,
+    textShadowColor: "rgba(0,0,0,0.7)",
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 12,
   },
   auraTag: {
     fontFamily: FONTS.monoBold,
@@ -430,6 +440,14 @@ const styles = StyleSheet.create({
   quoteMark: {
     color: COLORS.primary,
     fontSize: 18,
+  },
+  personalityRead: {
+    fontFamily: FONTS.mono,
+    fontSize: 11,
+    lineHeight: 15,
+    color: "rgba(245,241,230,0.72)",
+    marginTop: 8,
+    letterSpacing: 0.2,
   },
 
   // ─── Stats block ───

@@ -9,10 +9,9 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { COLORS, SPACING } from "../../src/constants/theme";
+import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
 import { SIGMA_PATHS, SigmaPathId } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
-import LeaderboardRow from "../../src/components/LeaderboardRow";
 import { authedFetch } from "../../src/lib/api";
 
 type Tab = "global" | "path" | "circle";
@@ -21,7 +20,30 @@ interface LeaderboardEntry {
   id: string;
   username: string;
   peak_aura: number;
+  tier?: string;
   avatar_color?: string;
+}
+
+function shortTier(tier?: string): string {
+  if (!tier) return "—";
+  const upper = tier.toUpperCase();
+  if (upper.includes("SKIBIDI")) return "SKIBIDI";
+  if (upper.includes("MOG GOD")) return "MOG GOD";
+  if (upper.includes("SIGMA")) return "SIGMA";
+  if (upper.includes("HIM") || upper.includes("HER")) return "HIM/HER";
+  if (upper.includes("COOK")) return "COOKING";
+  if (upper.includes("6") || upper.includes("SEVEN")) return "6-7";
+  if (upper.includes("NPC")) return "NPC";
+  return "DOWN BAD";
+}
+
+function tierColor(tier?: string): string {
+  const s = shortTier(tier);
+  if (s === "SKIBIDI") return "#FFFFFF";
+  if (s === "MOG GOD" || s === "SIGMA" || s === "HIM/HER") return COLORS.primary;
+  if (s === "COOKING") return "#FFB84D";
+  if (s === "6-7") return "#C9A14A";
+  return "#6B6B5E";
 }
 
 export default function MogBoardScreen() {
@@ -39,10 +61,9 @@ export default function MogBoardScreen() {
       let path = `/mogboard/global`;
       if (tab === "path") path = `/mogboard/path/${selectedPath}`;
       if (tab === "circle" && profile) path = `/mogboard/circle/${profile.id}`;
-
       const res = await authedFetch(path);
       const json = await res.json();
-      setData(json.leaderboard ?? json.data ?? json ?? []);
+      setData(json.leaderboard ?? json.data ?? []);
     } catch {
       setData([]);
     } finally {
@@ -60,28 +81,59 @@ export default function MogBoardScreen() {
     setRefreshing(false);
   };
 
-  const renderTab = (label: string, value: Tab) => (
-    <TouchableOpacity
-      key={value}
-      style={[styles.tab, tab === value && styles.tabActive]}
-      onPress={() => setTab(value)}
-    >
-      <Text style={[styles.tabText, tab === value && styles.tabTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-
   const selectedPathObj = SIGMA_PATHS.find((p) => p.id === selectedPath);
+
+  // ─── List row ───
+  const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
+    const rank = index + 1;
+    const isMe = profile?.id === item.id;
+    const color = tierColor(item.tier);
+    return (
+      <View style={[styles.row, isMe && styles.rowMe]}>
+        <View style={styles.rankCol}>
+          <Text style={[styles.rank, rank <= 3 && { color: COLORS.primary }]}>
+            {String(rank).padStart(2, "0")}
+          </Text>
+        </View>
+        <View style={styles.nameCol}>
+          <Text style={styles.name}>@{item.username}</Text>
+          <Text style={[styles.tier, { color }]}>{shortTier(item.tier)}</Text>
+        </View>
+        <Text style={[styles.score, { color }]} numberOfLines={1}>
+          {item.peak_aura}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Text style={styles.header}>Mog Board</Text>
-      <Text style={styles.subtitle}>Who's actually HIM right now</Text>
+      {/* Editorial header */}
+      <View style={styles.header}>
+        <View style={styles.eyebrowRow}>
+          <View style={styles.eyebrowLine} />
+          <Text style={styles.eyebrow}>SECTION 02 · THE RANKING</Text>
+        </View>
+        <Text style={styles.title}>MOG{"\n"}BOARD.</Text>
+        <Text style={styles.subtitle}>WHO'S ACTUALLY HIM RIGHT NOW</Text>
+      </View>
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        {renderTab("Global", "global")}
-        {renderTab("By Path", "path")}
-        {renderTab("Your Circle", "circle")}
+        {(["global", "path", "circle"] as Tab[]).map((value) => {
+          const active = tab === value;
+          const label = value === "global" ? "GLOBAL" : value === "path" ? "BY PATH" : "YOUR CIRCLE";
+          return (
+            <TouchableOpacity
+              key={value}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => setTab(value)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Path picker */}
@@ -90,13 +142,14 @@ export default function MogBoardScreen() {
           <TouchableOpacity
             style={styles.pathPicker}
             onPress={() => setPathPickerOpen(!pathPickerOpen)}
+            activeOpacity={0.75}
           >
-            <Text style={styles.pathPickerText}>
-              {selectedPathObj?.emoji} {selectedPathObj?.label}
+            <Text style={styles.pathPickerLabel}>FILTER</Text>
+            <Text style={styles.pathPickerValue}>
+              {selectedPathObj?.label.toUpperCase()}
             </Text>
-            <Text style={styles.pathChevron}>{pathPickerOpen ? "\u25B2" : "\u25BC"}</Text>
+            <Text style={styles.pathChevron}>{pathPickerOpen ? "▲" : "▼"}</Text>
           </TouchableOpacity>
-
           {pathPickerOpen && (
             <View style={styles.pathDropdown}>
               {SIGMA_PATHS.map((p) => (
@@ -111,8 +164,13 @@ export default function MogBoardScreen() {
                     setPathPickerOpen(false);
                   }}
                 >
-                  <Text style={styles.pathOptionText}>
-                    {p.emoji} {p.label}
+                  <Text
+                    style={[
+                      styles.pathOptionText,
+                      p.id === selectedPath && { color: COLORS.bg },
+                    ]}
+                  >
+                    {p.label.toUpperCase()}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -121,23 +179,27 @@ export default function MogBoardScreen() {
         </View>
       )}
 
+      {/* Column labels */}
+      <View style={styles.columnLabels}>
+        <View style={styles.rankCol}>
+          <Text style={styles.columnLabel}>RANK</Text>
+        </View>
+        <View style={styles.nameCol}>
+          <Text style={styles.columnLabel}>PLAYER</Text>
+        </View>
+        <Text style={[styles.columnLabel, { textAlign: "right" }]}>AURA</Text>
+      </View>
+
       {/* List */}
       {loading && !refreshing ? (
         <View style={styles.center}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
+          <ActivityIndicator color={COLORS.primary} size="small" />
         </View>
       ) : (
         <FlatList
           data={data}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <LeaderboardRow
-              rank={index + 1}
-              username={item.username}
-              peakAura={item.peak_aura}
-              avatarColor={item.avatar_color}
-            />
-          )}
+          renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
@@ -148,9 +210,9 @@ export default function MogBoardScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>{"💀"}</Text>
+              <Text style={styles.emptyLabel}>NO DATA</Text>
               <Text style={styles.emptyText}>
-                No one's cooking yet. Be the first to drop a pic.
+                NO ONE'S COOKING YET.{"\n"}BE THE FIRST TO DROP A PIC.
               </Text>
             </View>
           }
@@ -165,92 +227,200 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
+
+  // ─── Header ───
   header: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 214, 10, 0.12)",
+  },
+  eyebrowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  eyebrowLine: {
+    width: 20,
+    height: 1,
+    backgroundColor: COLORS.primary,
+    opacity: 0.6,
+  },
+  eyebrow: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    color: COLORS.primary,
+    letterSpacing: 2.5,
+  },
+  title: {
+    fontFamily: FONTS.display,
+    fontSize: 64,
+    lineHeight: 56,
     color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: "900",
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
+    letterSpacing: -2,
+    marginBottom: 8,
   },
   subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    letterSpacing: 1.5,
   },
+
+  // ─── Tabs ───
   tabs: {
     flexDirection: "row",
-    marginHorizontal: SPACING.md,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   tab: {
     flex: 1,
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 10,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
   },
   tabActive: {
     backgroundColor: COLORS.primary,
   },
   tabText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
+    fontFamily: FONTS.monoBold,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    letterSpacing: 1.8,
   },
   tabTextActive: {
-    color: COLORS.textPrimary,
-    fontWeight: "700",
+    color: COLORS.bg,
   },
+
+  // ─── Path picker ───
   pathSection: {
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.sm,
     zIndex: 10,
   },
   pathPicker: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 10,
-    padding: SPACING.md,
+    gap: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    backgroundColor: COLORS.bgCard,
   },
-  pathPickerText: {
+  pathPickerLabel: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: COLORS.textMuted,
+    letterSpacing: 1.5,
+  },
+  pathPickerValue: {
+    flex: 1,
+    fontFamily: FONTS.display,
+    fontSize: 18,
     color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: "600",
+    letterSpacing: -0.5,
   },
   pathChevron: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+    fontFamily: FONTS.mono,
+    color: COLORS.primary,
+    fontSize: 10,
   },
   pathDropdown: {
-    backgroundColor: COLORS.bgElevated,
-    borderRadius: 10,
-    marginTop: SPACING.xs,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
+    borderTopWidth: 0,
+    backgroundColor: COLORS.bgCard,
   },
   pathOption: {
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: 10,
     paddingHorizontal: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   pathOptionActive: {
-    backgroundColor: COLORS.primary + "20",
+    backgroundColor: COLORS.primary,
   },
   pathOptionText: {
+    fontFamily: FONTS.display,
+    fontSize: 15,
     color: COLORS.textPrimary,
-    fontSize: 14,
+    letterSpacing: -0.3,
   },
+
+  // ─── Column labels ───
+  columnLabels: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 10,
+    marginTop: SPACING.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(255, 214, 10, 0.12)",
+  },
+  columnLabel: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 8,
+    color: COLORS.textMuted,
+    letterSpacing: 2,
+  },
+
+  // ─── Row ───
   list: {
-    paddingTop: SPACING.xs,
     paddingBottom: SPACING.xxl,
   },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 214, 10, 0.06)",
+  },
+  rowMe: {
+    backgroundColor: "rgba(255, 214, 10, 0.04)",
+  },
+  rankCol: {
+    width: 44,
+  },
+  rank: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    letterSpacing: 1.5,
+  },
+  nameCol: {
+    flex: 1,
+  },
+  name: {
+    fontFamily: FONTS.display,
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+    lineHeight: 22,
+  },
+  tier: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    letterSpacing: 1.8,
+    marginTop: 1,
+  },
+  score: {
+    fontFamily: FONTS.display,
+    fontSize: 32,
+    letterSpacing: -1.5,
+    minWidth: 72,
+    textAlign: "right",
+    includeFontPadding: false,
+  },
+
+  // ─── Empty / loading ───
   center: {
     flex: 1,
     alignItems: "center",
@@ -261,14 +431,19 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xxl * 2,
     paddingHorizontal: SPACING.xl,
   },
-  emptyEmoji: {
-    fontSize: 48,
+  emptyLabel: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 11,
+    color: COLORS.primary,
+    letterSpacing: 3,
     marginBottom: SPACING.md,
   },
   emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
+    fontFamily: FONTS.mono,
+    color: COLORS.textMuted,
+    fontSize: 11,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 18,
+    letterSpacing: 1.2,
   },
 });
