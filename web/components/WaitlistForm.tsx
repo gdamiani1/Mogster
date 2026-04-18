@@ -4,8 +4,18 @@ import { useState, type FormEvent } from 'react';
 import { getSupabase } from '@/lib/supabase';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const DUPLICATE_CODE = '23505';
 
 type Phase = 'idle' | 'sending' | 'success' | 'duplicate';
+
+function isDuplicateError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === DUPLICATE_CODE
+  );
+}
 
 export function WaitlistForm() {
   const [email, setEmail] = useState('');
@@ -29,24 +39,34 @@ export function WaitlistForm() {
     const userAgent =
       typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
 
-    const { error: dbError } = await getSupabase()
-      .from('waitlist')
-      .insert({ email, user_agent: userAgent });
+    try {
+      const { error: dbError } = await getSupabase()
+        .from('waitlist')
+        .insert({ email, user_agent: userAgent });
 
-    if (!dbError) {
-      setPhase('success');
-      return;
+      if (!dbError) {
+        setPhase('success');
+        return;
+      }
+
+      if (isDuplicateError(dbError)) {
+        setPhase('duplicate');
+        return;
+      }
+
+      setPhase('idle');
+      setError('Something went sideways. Try again.');
+    } catch {
+      setPhase('idle');
+      setError('Something went sideways. Try again.');
     }
-
-    // Error handling refined in Cycle 3.
-    setPhase('idle');
-    setError('Something went sideways. Try again.');
   }
 
   if (phase === 'success') {
     return (
       <div
         role="status"
+        data-phase="success"
         className="bg-ink p-6 text-cream border-2 border-ink"
       >
         <p className="font-display text-3xl uppercase tracking-wide text-hazard-yellow">
@@ -55,6 +75,21 @@ export function WaitlistForm() {
         <p className="mt-2 font-body">
           You&apos;re sigma. See you on launch day.
         </p>
+      </div>
+    );
+  }
+
+  if (phase === 'duplicate') {
+    return (
+      <div
+        role="status"
+        data-phase="duplicate"
+        className="bg-ink p-6 text-cream border-2 border-hazard-yellow"
+      >
+        <p className="font-display text-3xl uppercase tracking-wide text-hazard-yellow">
+          ⚠ ALREADY ON THE LIST
+        </p>
+        <p className="mt-2 font-body">We&apos;ll see you on launch day.</p>
       </div>
     );
   }
