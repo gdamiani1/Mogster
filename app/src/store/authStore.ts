@@ -42,7 +42,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username, display_name: username } },
+      options: {
+        data: { username, display_name: username },
+        emailRedirectTo: 'https://mogster.app/auth/confirm',
+      },
     });
     if (error) throw error;
     if (data.user) {
