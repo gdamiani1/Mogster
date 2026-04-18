@@ -4,30 +4,37 @@ import userEvent from '@testing-library/user-event';
 import { getSupabase } from '@/lib/supabase';
 import { WaitlistForm } from '../WaitlistForm';
 
-vi.mock('@/lib/supabase', () => {
-  const insert = vi.fn(() => Promise.resolve({ error: null }));
-  const from = vi.fn(() => ({ insert }));
-  return {
-    getSupabase: vi.fn(() => ({ from })),
-  };
-});
+vi.mock('@/lib/supabase', () => ({
+  getSupabase: vi.fn(),
+}));
 
-function mockInsertResolving(result: { error: unknown }) {
-  const insert = vi.fn(() => Promise.resolve(result));
+type InsertArgs = { email: string; user_agent: string };
+type InsertResult = { error: unknown };
+
+function setInsertResolving(result: InsertResult) {
+  const insert = vi.fn((_: InsertArgs) => Promise.resolve(result));
   const from = vi.fn(() => ({ insert }));
-  vi.mocked(getSupabase).mockReturnValueOnce({ from } as never);
+  vi.mocked(getSupabase).mockImplementation(() => ({ from }) as never);
   return insert;
 }
 
-function mockInsertRejecting(err: unknown) {
-  const insert = vi.fn(() => Promise.reject(err));
+function setInsertPending() {
+  let resolveInsert: (v: InsertResult) => void = () => {};
+  const insert = vi.fn(
+    (_: InsertArgs) =>
+      new Promise<InsertResult>((r) => {
+        resolveInsert = r;
+      }),
+  );
   const from = vi.fn(() => ({ insert }));
-  vi.mocked(getSupabase).mockReturnValueOnce({ from } as never);
-  return insert;
+  vi.mocked(getSupabase).mockImplementation(() => ({ from }) as never);
+  return { insert, resolve: (v: InsertResult) => resolveInsert(v) };
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.mocked(getSupabase).mockReset();
+  // Default: inserts succeed with no error.
+  setInsertResolving({ error: null });
 });
 
 describe('WaitlistForm — validation', () => {
@@ -54,12 +61,64 @@ describe('WaitlistForm — validation', () => {
 
   it('does not call Supabase when validation fails', async () => {
     const user = userEvent.setup();
-    const insert = mockInsertResolving({ error: null });
+    const insert = setInsertResolving({ error: null });
     render(<WaitlistForm />);
 
     await user.type(screen.getByLabelText(/email/i), 'nope');
     await user.click(screen.getByRole('button', { name: /lock me in/i }));
 
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe('WaitlistForm — successful submission', () => {
+  it('inserts email into Supabase and shows success state on submit', async () => {
+    const user = userEvent.setup();
+    setInsertResolving({ error: null });
+    render(<WaitlistForm />);
+
+    await user.type(screen.getByLabelText(/email/i), 'sigma@mogster.app');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: /lock me in/i }));
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(/locked in/i);
+    expect(
+      screen.queryByRole('button', { name: /lock me in/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('calls insert with email + user_agent', async () => {
+    const user = userEvent.setup();
+    const insert = setInsertResolving({ error: null });
+    render(<WaitlistForm />);
+
+    await user.type(screen.getByLabelText(/email/i), 'sigma@mogster.app');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: /lock me in/i }));
+
+    await screen.findByRole('status');
+    expect(insert).toHaveBeenCalledTimes(1);
+    const args = insert.mock.calls[0][0];
+    expect(args).toMatchObject({ email: 'sigma@mogster.app' });
+    expect(typeof args.user_agent).toBe('string');
+  });
+
+  it('disables submit while sending', async () => {
+    const user = userEvent.setup();
+    const { insert, resolve } = setInsertPending();
+
+    render(<WaitlistForm />);
+    await user.type(screen.getByLabelText(/email/i), 'sigma@mogster.app');
+    await user.click(screen.getByRole('checkbox'));
+    const button = screen.getByRole('button', { name: /lock me in/i });
+    await user.click(button);
+
+    expect(insert).toHaveBeenCalled();
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+
+    resolve({ error: null });
+    await screen.findByRole('status');
   });
 });

@@ -5,25 +5,61 @@ import { getSupabase } from '@/lib/supabase';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+type Phase = 'idle' | 'sending' | 'success' | 'duplicate';
+
 export function WaitlistForm() {
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>('idle');
 
-  function submit(e: FormEvent<HTMLFormElement>) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!EMAIL_RE.test(email)) {
       setError('Enter a valid email address.');
       return;
     }
     if (!consent) {
-      setError('Tick the consent box to continue.');
+      setError('You need to give consent before we can add you.');
       return;
     }
     setError(null);
-    // Cycle 2 will wire this up.
-    void getSupabase;
+    setPhase('sending');
+
+    const userAgent =
+      typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+
+    const { error: dbError } = await getSupabase()
+      .from('waitlist')
+      .insert({ email, user_agent: userAgent });
+
+    if (!dbError) {
+      setPhase('success');
+      return;
+    }
+
+    // Error handling refined in Cycle 3.
+    setPhase('idle');
+    setError('Something went sideways. Try again.');
   }
+
+  if (phase === 'success') {
+    return (
+      <div
+        role="status"
+        className="bg-ink p-6 text-cream border-2 border-ink"
+      >
+        <p className="font-display text-3xl uppercase tracking-wide text-hazard-yellow">
+          ☢ LOCKED IN ☢
+        </p>
+        <p className="mt-2 font-body">
+          You&apos;re sigma. See you on launch day.
+        </p>
+      </div>
+    );
+  }
+
+  const sending = phase === 'sending';
 
   return (
     <form onSubmit={submit} noValidate className="font-body">
@@ -57,9 +93,12 @@ export function WaitlistForm() {
       )}
       <button
         type="submit"
-        className="mt-4 w-full bg-ink px-4 py-3 font-display uppercase tracking-wide text-hazard-yellow"
+        data-phase={phase}
+        disabled={sending}
+        aria-busy={sending ? 'true' : undefined}
+        className="mt-4 w-full bg-ink px-4 py-3 font-display uppercase tracking-wide text-hazard-yellow disabled:opacity-60"
       >
-        LOCK ME IN →
+        {sending ? 'SENDING…' : 'LOCK ME IN →'}
       </button>
     </form>
   );
