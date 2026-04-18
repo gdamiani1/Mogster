@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { supabase } from "../lib/supabase";
-import { sendPush } from "../lib/push";
+import { sendPushBatch } from "../lib/push";
 import { getTodayChallenge } from "../lib/daily";
 
 export async function cronRoutes(app: FastifyInstance) {
@@ -11,23 +11,35 @@ export async function cronRoutes(app: FastifyInstance) {
     }
 
     const challenge = getTodayChallenge();
-    const { data: rows, error } = await supabase.from("push_tokens").select("user_id");
+    const { data: rows, error } = await supabase
+      .from("push_tokens")
+      .select("user_id, expo_push_token");
     if (error) {
-      app.log.error(error, "cron/daily-challenge: failed to list push_tokens");
+      app.log.error({ err: error }, "cron/daily-challenge: failed to list push_tokens");
       return reply.code(500).send({ error: "db_error" });
     }
 
     const title = `Today's challenge: ${challenge.title}`;
     const body = `${challenge.description} +${challenge.bonus_multiplier}× aura if you pass.`;
-    let count = 0;
-    for (const row of rows ?? []) {
-      await sendPush(row.user_id, {
-        title,
-        body,
-        data: { url: "mogster://" },
-      });
-      count++;
+
+    const result = await sendPushBatch(rows ?? [], {
+      title,
+      body,
+      data: { url: "mogster://" },
+    });
+
+    if (result.failed > 0) {
+      app.log.warn(
+        { sent: result.sent, failed: result.failed, pruned: result.invalidTokensPruned },
+        "cron/daily-challenge: partial failures"
+      );
     }
-    return { ok: true, count };
+
+    return {
+      ok: result.failed === 0,
+      count: result.sent,
+      failed: result.failed,
+      pruned: result.invalidTokensPruned,
+    };
   });
 }

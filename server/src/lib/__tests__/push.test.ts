@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { sendPush } from "../push";
+import { sendPush, sendPushBatch } from "../push";
 
 vi.mock("../supabase", () => ({
   supabase: {
@@ -95,5 +95,95 @@ describe("sendPush", () => {
     });
     fetchMock.mockRejectedValueOnce(new Error("network down"));
     await expect(sendPush("u", { title: "t", body: "b" })).resolves.toBeUndefined();
+  });
+});
+
+describe("sendPushBatch", () => {
+  it("POSTs all tokens in a single chunk and counts OK tickets", async () => {
+    const { supabase } = await import("../supabase");
+    (supabase.from as any).mockReturnValue({ delete: vi.fn() });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: [{ status: "ok" }, { status: "ok" }],
+        }),
+    });
+
+    const result = await sendPushBatch(
+      [
+        { user_id: "u1", expo_push_token: "t1" },
+        { user_id: "u2", expo_push_token: "t2" },
+      ],
+      { title: "T", body: "B", data: { url: "mogster://" } }
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ sent: 2, failed: 0, invalidTokensPruned: 0 });
+  });
+
+  it("splits >100 tokens across multiple POSTs", async () => {
+    const { supabase } = await import("../supabase");
+    (supabase.from as any).mockReturnValue({ delete: vi.fn() });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: Array.from({ length: 100 }, () => ({ status: "ok" })),
+        }),
+    });
+    const rows = Array.from({ length: 150 }, (_, i) => ({
+      user_id: `u${i}`,
+      expo_push_token: `tok${i}`,
+    }));
+
+    const result = await sendPushBatch(rows, { title: "T", body: "B" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.sent).toBeGreaterThan(0);
+  });
+
+  it("prunes DeviceNotRegistered tokens and counts failures", async () => {
+    const { supabase } = await import("../supabase");
+    const deleteIn = vi.fn().mockResolvedValue({ error: null });
+    const deleteMock = vi.fn().mockReturnValue({ in: deleteIn });
+    (supabase.from as any).mockReturnValue({ delete: deleteMock });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: [
+            { status: "ok" },
+            { status: "error", details: { error: "DeviceNotRegistered" } },
+          ],
+        }),
+    });
+
+    const result = await sendPushBatch(
+      [
+        { user_id: "u1", expo_push_token: "t1" },
+        { user_id: "u2", expo_push_token: "stale" },
+      ],
+      { title: "T", body: "B" }
+    );
+
+    expect(result).toEqual({ sent: 1, failed: 1, invalidTokensPruned: 1 });
+    expect(deleteIn).toHaveBeenCalledWith("user_id", ["u2"]);
+  });
+
+  it("marks whole chunk as failed when fetch throws", async () => {
+    const { supabase } = await import("../supabase");
+    (supabase.from as any).mockReturnValue({ delete: vi.fn() });
+    fetchMock.mockRejectedValueOnce(new Error("down"));
+
+    const result = await sendPushBatch(
+      [
+        { user_id: "u1", expo_push_token: "t1" },
+        { user_id: "u2", expo_push_token: "t2" },
+      ],
+      { title: "T", body: "B" }
+    );
+
+    expect(result).toEqual({ sent: 0, failed: 2, invalidTokensPruned: 0 });
   });
 });

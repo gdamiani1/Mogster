@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { authedFetch } from "./api";
 
@@ -27,7 +28,12 @@ export async function requestPermissionsAndRegister(): Promise<string | null> {
   }
   if (status !== "granted") return null;
 
-  const tokenResult = await Notifications.getExpoPushTokenAsync();
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    (Constants as any).easConfig?.projectId;
+  const tokenResult = await Notifications.getExpoPushTokenAsync(
+    projectId ? { projectId } : undefined
+  );
   const token = tokenResult.data;
 
   try {
@@ -75,11 +81,11 @@ export async function scheduleDailyReminder(): Promise<void> {
 
 export async function scheduleStreakSaver(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(STREAK_SAVER_ID).catch(() => {});
-  // Fire tomorrow at 22:00 local; user should check in before that to cancel
-  const now = new Date();
+  // Fire tomorrow at 22:00 local — the user just checked in, so the earliest
+  // they can miss a day is tomorrow.
   const trigger = new Date();
+  trigger.setDate(trigger.getDate() + 1);
   trigger.setHours(22, 0, 0, 0);
-  if (trigger.getTime() <= now.getTime()) trigger.setDate(trigger.getDate() + 1);
   await Notifications.scheduleNotificationAsync({
     identifier: STREAK_SAVER_ID,
     content: {
