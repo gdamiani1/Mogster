@@ -9,6 +9,8 @@ import { leaderboardRoutes } from "./routes/leaderboard";
 import { friendRoutes } from "./routes/friends";
 import { dailyRoutes } from "./routes/daily";
 import { battleRoutes } from "./routes/battles";
+import { pushRoutes } from "./routes/push";
+import { cronRoutes } from "./routes/cron";
 
 const app = Fastify({
   logger: true,
@@ -46,6 +48,8 @@ app.register(leaderboardRoutes);
 app.register(friendRoutes);
 app.register(dailyRoutes);
 app.register(battleRoutes);
+app.register(pushRoutes);
+app.register(cronRoutes);
 
 const start = async () => {
   try {

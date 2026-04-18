@@ -5,6 +5,7 @@ import { redis, LEADERBOARD_KEYS } from "../lib/redis";
 import { rateAura } from "../ai/rate";
 import { SigmaPath, SIGMA_PATHS } from "../ai/types";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { applyChallengeBonus } from "../lib/daily";
 
 const DAILY_LIMIT = 15;
 
@@ -58,6 +59,12 @@ export async function auraRoutes(app: FastifyInstance) {
     // AI Rating
     const result = await rateAura(imageBase64, sigmaPath);
 
+    // Apply today's daily-challenge bonus (if sigma_path matches)
+    const { finalScore, multiplier, challengeCompleted } = applyChallengeBonus(
+      result.aura_score,
+      sigmaPath
+    );
+
     // Save to DB
     const { data: check, error: dbError } = await supabase
       .from("aura_checks")
@@ -65,25 +72,26 @@ export async function auraRoutes(app: FastifyInstance) {
         user_id: userId,
         image_url: urlData.publicUrl,
         sigma_path: sigmaPath,
-        aura_score: result.aura_score,
+        aura_score: finalScore,
         personality_read: result.personality_read,
         roast: result.roast,
         aura_color: result.aura_color,
         tier: result.tier,
         stats: result.stats,
+        challenge_completed: challengeCompleted,
       })
       .select()
       .single();
     if (dbError) return reply.status(500).send({ error: "DB crashed out. Try again." });
 
     // Update leaderboards
-    await redis.zadd(LEADERBOARD_KEYS.global, { score: result.aura_score, member: userId });
-    await redis.zadd(LEADERBOARD_KEYS.path(sigmaPath), { score: result.aura_score, member: userId });
+    await redis.zadd(LEADERBOARD_KEYS.global, { score: finalScore, member: userId });
+    await redis.zadd(LEADERBOARD_KEYS.path(sigmaPath), { score: finalScore, member: userId });
 
     // Update profile stats
     await supabase.rpc("update_profile_stats", {
       p_user_id: userId,
-      p_score: result.aura_score,
+      p_score: finalScore,
       p_tier: result.tier,
     });
 
@@ -93,6 +101,9 @@ export async function auraRoutes(app: FastifyInstance) {
 
     return {
       ...result,
+      aura_score: finalScore,
+      challenge_multiplier: multiplier,
+      challenge_completed: challengeCompleted,
       check_id: check.id,
       image_url: urlData.publicUrl,
       checks_remaining: unlimited ? -1 : DAILY_LIMIT - (checkCount + 1),

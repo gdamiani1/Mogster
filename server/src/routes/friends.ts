@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { supabase } from "../lib/supabase";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { sendPush } from "../lib/push";
 
 export async function friendRoutes(app: FastifyInstance) {
   // Link Up — send friend request
@@ -27,6 +28,19 @@ export async function friendRoutes(app: FastifyInstance) {
     if (error) {
       return reply.status(400).send({ error: "Already in your circle or request pending" });
     }
+
+    // Fire-and-forget push to addressee
+    const { data: requester } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", requester_id)
+      .single();
+    void sendPush(addressee.id, {
+      title: `${requester?.username ?? "Someone"} wants to join your circle`,
+      body: "Accept or decline in Battles.",
+      data: { url: "mogster://battles" },
+    });
+
     return { message: "Link up request sent. W." };
   });
 

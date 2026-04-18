@@ -19,7 +19,8 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Pick a photo from your library to get your aura rated",
         "NSCameraUsageDescription": "Take a photo to get your aura rated",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -52,6 +53,13 @@
         {
           "photosPermission": "Allow Mogster to save your cards to camera roll",
           "savePhotosPermission": "Allow Mogster to save your cards to camera roll"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FFD60A"
         }
       ]
     ],

@@ -92,7 +92,6 @@ function LaunchScreen() {
 export default function OnboardingScreen() {
   const router = useRouter();
   const setPath = useAuthStore((s) => s.setPath);
-  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
 
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -115,12 +114,11 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleFinish = async () => {
+  const handleFinish = () => {
     if (selectedPath) {
       setPath(selectedPath);
     }
-    await completeOnboarding();
-    // Route guard in _layout.tsx will auto-navigate to (tabs) reactively
+    router.push("/onboarding/notifications");
   };
 
   const isNextDisabled = currentIndex === 1 && !selectedPath;

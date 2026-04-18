@@ -6,6 +6,7 @@ import { generateFightNarrative, fallbackNarrative, FighterSummary } from "../ai
 import { pickWinner, classifyMargin, BattleMargin } from "../battles/helpers";
 import { SigmaPath, SIGMA_PATHS } from "../ai/types";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { sendPush } from "../lib/push";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -267,6 +268,13 @@ export async function battleRoutes(app: FastifyInstance) {
         }).eq("id", loserId);
       }
     }
+
+    // Fire-and-forget push to challenger that opponent accepted
+    void sendPush(battle.challenger_id, {
+      title: `${opponentSummary.username} accepted your battle`,
+      body: "Go see who mogged harder.",
+      data: { url: `mogster://battles/reveal/${battle.id}` },
+    });
 
     return {
       battle_id: battle.id,
