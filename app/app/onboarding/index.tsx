@@ -118,7 +118,8 @@ export default function OnboardingScreen() {
     if (selectedPath) {
       setPath(selectedPath);
     }
-    router.push("/onboarding/notifications");
+    // Typed route regenerates during EAS build; cast for standalone tsc
+    router.push("/onboarding/notifications" as never);
   };
 
   const isNextDisabled = currentIndex === 1 && !selectedPath;
