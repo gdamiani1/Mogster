@@ -10,6 +10,7 @@ import { Bungee_400Regular } from "@expo-google-fonts/bungee";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
+import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
 import { supabase } from "../src/lib/supabase";
 import { useAuthStore } from "../src/store/authStore";
@@ -138,24 +139,44 @@ function RootLayoutNav() {
     };
   }, []);
 
-  /* Handle mogster://auth/callback deep links — cold start + warm invocation */
+  /* Handle mogster:// deep links — auth callback + notification-tap targets */
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
       if (!url) return;
+
+      // 1. Auth callback — set session then bail
       const tokens = parseTokensFromMogsterUrl(url);
-      if (!tokens) return;
-      try {
-        const { error } = await supabase.auth.setSession({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
-        });
-        if (error) {
-          console.warn("Failed to set session from deep link:", error.message);
-          return;
+      if (tokens) {
+        try {
+          const { error } = await supabase.auth.setSession({
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+          });
+          if (error) {
+            console.warn("Failed to set session from deep link:", error.message);
+            return;
+          }
+          await useAuthStore.getState().fetchProfile();
+        } catch (e) {
+          console.warn("Deep-link session handling failed:", e);
         }
-        await useAuthStore.getState().fetchProfile();
+        return;
+      }
+
+      // 2. Battles deep links from notifications
+      try {
+        const { scheme, hostname, path } = Linking.parse(url);
+        if (scheme !== "mogster") return;
+        if (hostname === "battles") {
+          if (path && path.startsWith("reveal/")) {
+            const battleId = path.slice("reveal/".length);
+            router.push(`/battles/reveal/${battleId}` as any);
+          } else {
+            router.push("/(tabs)/battles" as any);
+          }
+        }
       } catch (e) {
-        console.warn("Deep-link session handling failed:", e);
+        console.warn("Deep-link routing failed:", e);
       }
     };
 
@@ -163,12 +184,21 @@ function RootLayoutNav() {
       .then(handleUrl)
       .catch((e) => console.warn("getInitialURL failed:", e));
 
-    const sub = Linking.addEventListener("url", (e) => {
+    const linkSub = Linking.addEventListener("url", (e) => {
       handleUrl(e.url);
     });
 
+    // Route notification taps via the same handler
+    const notifSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const url = response.notification.request.content.data?.url;
+      if (typeof url === "string" && url.length > 0) {
+        handleUrl(url);
+      }
+    });
+
     return () => {
-      sub.remove();
+      linkSub.remove();
+      notifSub.remove();
     };
   }, []);
 
