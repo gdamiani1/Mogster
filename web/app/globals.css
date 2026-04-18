@@ -60,49 +60,46 @@
   .mogster-blob { display: none; }
 }
 
-/* ---------- Motion: glitch-settle wordmark entrance ---------- */
+/* ---------- Motion: electric flicker wordmark entrance ----------
+ * Neon-sign power-on: flickers on/off a few times with a cyan electric
+ * glow (drop-shadow arc) that pulses during the flicker, then settles
+ * to solid ink. Single run on page load. LCP-safe — the text sits at
+ * its final position throughout; only opacity and filter animate.
+ */
 .mogster-glitch {
-  position: relative;
   display: inline-block;
-  animation: mogster-glitch-settle 1200ms cubic-bezier(0.22, 1, 0.36, 1) 1 both;
+  animation:
+    mogster-electric-flicker 1500ms steps(40, end) 1 both,
+    mogster-electric-arc 1500ms ease-out 1 both;
 }
-.mogster-glitch::before,
-.mogster-glitch::after {
-  /* Alt-text `/ ""` hides pseudo content from the accessibility tree. */
-  content: attr(data-text) / "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  color: inherit;
+/* Starts and ends at opacity: 1 so the text stays readable between strikes
+ * (LCP-safe initial paint). The strike dips through a few zero-opacity
+ * frames with cyan arc glow, then restores. */
+@keyframes mogster-electric-flicker {
+  0%        { opacity: 1; }
+  6%, 8%    { opacity: 0; }
+  10%, 13%  { opacity: 1; }
+  14%, 15%  { opacity: 0; }
+  16%       { opacity: 0.35; }
+  17%, 24%  { opacity: 1; }
+  26%, 27%  { opacity: 0; }
+  28%, 100% { opacity: 1; }
 }
-.mogster-glitch::before {
-  color: #00E5FF;
-  mix-blend-mode: screen;
-  animation: mogster-glitch-cyan 1000ms steps(10, end) 1 both;
-}
-.mogster-glitch::after {
-  color: #FF007A;
-  mix-blend-mode: screen;
-  animation: mogster-glitch-magenta 1000ms steps(10, end) 1 both;
-}
-@keyframes mogster-glitch-settle {
-  0%   { transform: skewX(-2deg); }
-  25%  { transform: skewX(3deg); }
-  50%  { transform: skewX(-1deg); }
-  75%  { transform: scale(1.02); }
-  100% { transform: none; }
-}
-@keyframes mogster-glitch-cyan {
-  0%   { transform: translate(-6px, 1px); opacity: 1; }
-  40%  { transform: translate(-4px, -2px); opacity: 1; }
-  70%  { transform: translate(-2px, 0); opacity: 0.6; }
-  100% { transform: translate(0, 0); opacity: 0; }
-}
-@keyframes mogster-glitch-magenta {
-  0%   { transform: translate(6px, -1px); opacity: 1; }
-  40%  { transform: translate(4px, 2px); opacity: 1; }
-  70%  { transform: translate(2px, 0); opacity: 0.6; }
-  100% { transform: translate(0, 0); opacity: 0; }
+@keyframes mogster-electric-arc {
+  0%        { filter: none; }
+  8%, 10%   {
+    filter:
+      drop-shadow(0 0 10px #00E5FF)
+      drop-shadow(0 0 22px #00E5FF)
+      drop-shadow(0 0 2px #FFFFFF);
+  }
+  16%, 22%  {
+    filter:
+      drop-shadow(0 0 6px #00E5FF)
+      drop-shadow(0 0 14px #00E5FF);
+  }
+  30%, 50%  { filter: drop-shadow(0 0 3px #00E5FF); }
+  100%      { filter: none; }
 }
 
 /* ---------- Reduced-motion: kill everything ambient ---------- */
@@ -115,10 +112,6 @@
   .mogster-marquee-track { transform: none; }
   .mogster-flicker > span:nth-child(1) { opacity: 1; }
   .mogster-flicker > span:nth-child(n+2) { display: none; }
-  .mogster-glitch,
-  .mogster-glitch::before,
-  .mogster-glitch::after { animation: none; }
-  .mogster-glitch::before,
-  .mogster-glitch::after { display: none; }
+  .mogster-glitch { animation: none; filter: none; opacity: 1; }
   .mogster-blob { display: none; }
 }
