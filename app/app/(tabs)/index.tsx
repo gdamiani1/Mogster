@@ -22,6 +22,7 @@ import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 import AuraResultCard from "../../src/components/AuraResultCard";
 import Wordmark from "../../src/components/design/Wordmark";
+import { DailyChallengeBanner } from "../../src/components/daily/DailyChallengeBanner";
 
 import { API_URL } from "../../src/lib/api";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -419,6 +420,8 @@ export default function VibeCheckScreen() {
             <Text style={styles.metaTextAccent}>{todayStamp()}</Text>
           </View>
         </View>
+
+        <DailyChallengeBanner />
 
         <View style={styles.eyebrowRow}>
           <View style={styles.eyebrowLine} />
