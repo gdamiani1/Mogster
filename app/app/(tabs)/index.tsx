@@ -17,6 +17,7 @@ import { SIGMA_PATHS } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 import { supabase } from "../../src/lib/supabase";
 import { authedFetch } from "../../src/lib/api";
+import { scheduleStreakSaver } from "../../src/lib/notifications";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 import AuraResultCard from "../../src/components/AuraResultCard";
@@ -243,6 +244,8 @@ export default function VibeCheckScreen() {
       // Fresh checks aren't saved by default; capture id for the bookmark button
       setLatestCheckId((data as any).check_id || null);
       setLatestIsSaved(false);
+      // Reschedule streak-saver ping for tomorrow 22:00 (fire-and-forget)
+      void scheduleStreakSaver();
     } catch (err: any) {
       setError(err.message || "Something went wrong no cap");
     } finally {
