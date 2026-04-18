@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Platform,
   Linking,
+  Switch,
 } from "react-native";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
@@ -21,6 +22,11 @@ import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
 import { SIGMA_PATHS } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 import { authedFetch } from "../../src/lib/api";
+import {
+  getPermissionStatus,
+  requestPermissionsAndRegister,
+  unregister,
+} from "../../src/lib/notifications";
 
 interface HistoryEntry {
   id: string;
@@ -76,6 +82,32 @@ export default function YourAuraScreen() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [notifOn, setNotifOn] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await getPermissionStatus();
+        setNotifOn(status === "granted");
+      } catch {
+        setNotifOn(false);
+      }
+    })();
+  }, []);
+
+  const toggleNotif = async (v: boolean) => {
+    setNotifOn(v);
+    try {
+      if (v) {
+        const token = await requestPermissionsAndRegister();
+        if (!token) setNotifOn(false);
+      } else {
+        await unregister();
+      }
+    } catch {
+      setNotifOn(!v);
+    }
+  };
 
   const fetchHistory = useCallback(async () => {
     if (!profile) return;
@@ -418,6 +450,17 @@ export default function YourAuraScreen() {
 
             {/* Links */}
             <View style={styles.settingsCard}>
+              <View style={styles.settingsRow}>
+                <Text style={styles.settingsRowLabel}>NOTIFICATIONS</Text>
+                <Switch
+                  value={notifOn}
+                  onValueChange={toggleNotif}
+                  trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                  thumbColor={COLORS.bg}
+                  ios_backgroundColor={COLORS.border}
+                />
+              </View>
+              <View style={styles.settingsDivider} />
               <TouchableOpacity
                 style={styles.settingsRow}
                 onPress={() => openLink("https://mogster.app/privacy")}
