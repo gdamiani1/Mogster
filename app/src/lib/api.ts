@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+export const API_URL = "https://mogster-production.up.railway.app";
 
 /**
  * Fetch wrapper that automatically attaches the Supabase JWT.
