@@ -22,7 +22,7 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   onboardingComplete: boolean | null;
-  signUp: (email: string, password: string, username: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, dob: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
@@ -38,12 +38,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   onboardingComplete: null,
 
-  signUp: async (email, password, username) => {
+  signUp: async (email, password, username, dob) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { username, display_name: username },
+        data: { username, display_name: username, dob },
         emailRedirectTo: 'https://mogster.app/auth/confirm',
       },
     });
