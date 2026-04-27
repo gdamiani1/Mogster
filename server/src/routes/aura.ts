@@ -14,6 +14,7 @@ import {
   logEvent,
   SAFE_FALLBACK_ROAST,
 } from "../middleware/moderation";
+import { capture } from "../lib/analytics";
 
 const DAILY_LIMIT = 15;
 
@@ -57,6 +58,17 @@ export async function auraRoutes(app: FastifyInstance) {
     // Pre-Gemini moderation gate: strikes + cost circuit breaker
     const pre = await preCheck({ userId, sigmaPath, requestId: request.id });
     if (!pre.allow) {
+      capture({
+        distinctId: userId,
+        event: "moderation_rejected",
+        properties: {
+          stage: "pre_check",
+          event_type: pre.eventType,
+          copy_tier: pre.copyTier,
+          hard_locked: pre.hardLocked === true,
+          sigma_path: sigmaPath,
+        },
+      });
       return reply.status(403).send({
         error: "AURA_UNREADABLE",
         copy_tier: pre.copyTier,
@@ -87,6 +99,18 @@ export async function auraRoutes(app: FastifyInstance) {
           sigmaPath,
           imageBuffer: buffer,
           requestId: request.id,
+        });
+        capture({
+          distinctId: userId,
+          event: "moderation_rejected",
+          properties: {
+            stage: "gemini_safety",
+            event_type: mod.eventType,
+            copy_tier: mod.copyTier,
+            hard_locked: mod.hardLocked === true,
+            soft_locked: !!mod.softLockedUntil,
+            sigma_path: sigmaPath,
+          },
         });
         return reply.status(403).send({
           error: "AURA_UNREADABLE",
@@ -188,6 +212,19 @@ export async function auraRoutes(app: FastifyInstance) {
     // Increment daily check count
     await redis.incr(checkKey);
     await redis.expire(checkKey, 86400);
+
+    capture({
+      distinctId: userId,
+      event: "aura_rated",
+      properties: {
+        sigma_path: sigmaPath,
+        score: finalScore,
+        tier: result.tier,
+        was_daily_challenge: challengeCompleted,
+        challenge_multiplier: multiplier,
+        check_id: check.id,
+      },
+    });
 
     return {
       ...result,

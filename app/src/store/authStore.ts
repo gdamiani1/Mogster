@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { capture, identify, reset } from "../lib/analytics";
 
 const ONBOARDING_KEY = "mogster_onboarding_complete";
 
@@ -50,6 +51,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) throw error;
     if (data.user) {
       set({ user: data.user });
+      identify(data.user.id, { email: data.user.email });
+      capture("signup_completed", { has_dob: true });
       await get().fetchProfile();
     }
   },
@@ -58,11 +61,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     set({ user: data.user });
+    if (data.user) {
+      identify(data.user.id, { email: data.user.email });
+      capture("signin_completed");
+    }
     await get().fetchProfile();
   },
 
   signOut: async () => {
     await supabase.auth.signOut();
+    reset();
     set({ user: null, profile: null, onboardingComplete: null });
   },
 
@@ -106,6 +114,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       console.warn("completeOnboarding setItem failed:", e);
     }
+    capture("onboarding_complete");
     set({ onboardingComplete: true });
   },
 

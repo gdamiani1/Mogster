@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, SPACING, FONTS, displayText } from "../constants/theme";
 import GrainOverlay from "./design/GrainOverlay";
+import { capture } from "../lib/analytics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
@@ -131,6 +132,12 @@ export default function AuraResultCard({
       } else {
         await Share.share({ message });
       }
+      capture("card_shared", {
+        score: result.aura_score,
+        tier: result.tier,
+        sigma_path: sigmaPath,
+        captured: !!uri,
+      });
     } catch (_) {}
   };
 
@@ -151,6 +158,11 @@ export default function AuraResultCard({
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
+      capture("card_saved", {
+        score: result.aura_score,
+        tier: result.tier,
+        sigma_path: sigmaPath,
+      });
       Alert.alert("W secured", "Card saved to your camera roll");
     } catch (_) {
       Alert.alert("L detected", "Failed to save card");

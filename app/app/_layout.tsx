@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../src/lib/supabase";
 import { useAuthStore } from "../src/store/authStore";
 import RootErrorBoundary from "../src/components/RootErrorBoundary";
+import { capture as captureAnalytics, identify as identifyAnalytics } from "../src/lib/analytics";
 
 function parseTokensFromMogsterUrl(
   url: string
@@ -95,6 +96,11 @@ function RootLayoutNav() {
 
   const [authReady, setAuthReady] = useState(false);
 
+  /* Cold-start app_open event */
+  useEffect(() => {
+    captureAnalytics("app_open", { type: "cold" });
+  }, []);
+
   /* Listen for Supabase auth state changes */
   useEffect(() => {
     let unsub: (() => void) | null = null;
@@ -104,6 +110,7 @@ function RootLayoutNav() {
           try {
             useAuthStore.setState({ user: session?.user ?? null });
             if (session?.user) {
+              identifyAnalytics(session.user.id, { email: session.user.email });
               fetchProfile().catch((e) => console.warn("fetchProfile failed:", e));
             }
             setAuthReady(true);
