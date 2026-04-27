@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
-import { SIGMA_PATHS } from "../../src/constants/paths";
+import { SIGMA_PATHS, SigmaPathId } from "../../src/constants/paths";
 import { useAuthStore } from "../../src/store/authStore";
 import { supabase } from "../../src/lib/supabase";
 import { authedFetch } from "../../src/lib/api";
@@ -28,6 +28,7 @@ import { API_URL, ModerationError } from "../../src/lib/api";
 import { ModerationRejectCard } from "../../src/components/ModerationRejectCard";
 import { LensPicker } from "../../src/components/LensPicker";
 import { capture } from "../../src/lib/analytics";
+import DossierLoadingScreen from "../../src/components/DossierLoadingScreen";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const LOADING_MESSAGES = [
@@ -92,8 +93,8 @@ async function checkAura(
 
 export default function VibeCheckScreen() {
   const { profile } = useAuthStore();
-  const [selectedPath, setSelectedPath] = useState(
-    profile?.current_path || SIGMA_PATHS[0].id
+  const [selectedPath, setSelectedPath] = useState<SigmaPathId>(
+    (profile?.current_path as SigmaPathId) || SIGMA_PATHS[0].id
   );
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -360,7 +361,7 @@ export default function VibeCheckScreen() {
     return unsubscribe;
   }, [navigation, isFocused, result, imageUri]);
 
-  const handlePathSelect = (pathId: string) => {
+  const handlePathSelect = (pathId: SigmaPathId) => {
     setSelectedPath(pathId);
     useAuthStore.getState().setPath(pathId);
     capture("lens_picked", { sigma_path: pathId });
@@ -395,42 +396,11 @@ export default function VibeCheckScreen() {
     );
   }
 
-  // ─── LOADING VIEW ───
+  // ─── LOADING VIEW — DOSSIER UNDER REVIEW ───
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.loadingView}>
-          {imageUri && (
-            <Animated.View
-              style={[
-                styles.loadingImageWrapper,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
-            >
-              <LinearGradient
-                colors={[COLORS.primary, COLORS.accent, COLORS.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.loadingGlowBorder}
-              >
-                <Image
-                  source={{ uri: imageUri }}
-                  style={styles.loadingImage}
-                />
-              </LinearGradient>
-            </Animated.View>
-          )}
-          <Animated.Text
-            style={[styles.loadingText, { opacity: msgFadeAnim }]}
-          >
-            {LOADING_MESSAGES[loadingMsgIndex]}
-          </Animated.Text>
-          <View style={styles.loadingDots}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={styles.loadingDot} />
-            ))}
-          </View>
-        </View>
+        <DossierLoadingScreen imageUri={imageUri} sigmaPath={selectedPath} />
       </SafeAreaView>
     );
   }
