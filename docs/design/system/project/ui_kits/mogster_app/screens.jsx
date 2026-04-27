@@ -200,53 +200,140 @@ function Home() {
 /* ───────────────────────────── 04 — pick a path ──────────────────── */
 
 function PickPath() {
+  // ── Modal variant (W2 plan) ──
+  // Slides over the Home tab as a slam-cut sheet — no spring.
+  // Ink backdrop @ 60%, no blur. Tap row = commit + slam-cut out.
+  // ✕ = "I changed my mind, keep current."
   const paths = [
-    { num: "01", name: "AURAMAXXING", desc: "the vibe lens. main read.", active: true },
-    { num: "02", name: "LOOKSMAXXING", desc: "the face card. structure, symmetry.", active: false },
-    { num: "03", name: "MOGGER MODE", desc: "raw dominance. no notes.", active: false },
-    { num: "04", name: "BRAINROT", desc: "internet poisoning index.", active: false },
-    { num: "05", name: "NPC INDEX", desc: "are you in the matrix or running it.", active: false },
+    { num: "01", name: "AURAMAXXING",  desc: "main character energy. the whole vibe.",   active: true  },
+    { num: "02", name: "LOOKSMAXXING", desc: "the glow-up audit. drip + structure.",     active: false },
+    { num: "03", name: "MOGGER MODE",  desc: "raw dominance. who's mogging the room.",   active: false },
+    { num: "04", name: "RIZZMAXXING",  desc: "charm + magnetism index.",                 active: false },
+    { num: "05", name: "STATUSMAXXING",desc: "the flex inspector. real or fake.",        active: false },
+    { num: "06", name: "BRAINROT MODE",desc: "internet poisoning. peak ohio energy.",    active: false },
+    { num: "07", name: "SIGMA GRINDSET",desc:"discipline + lone wolf signal.",           active: false },
   ];
+
+  // Modal occupies ~85% of phone viewport (320 × 693 → sheet ~589 tall, top edge ~104).
+  const SHEET_TOP = 104;
+  const HAZARD_H = 24;
+
   return (
     <div className="phone-bg">
+      {/* faint grain stays on the dark backdrop so it still feels like product */}
       <div className="grain-overlay" />
-      <StatusStrip right="LENS · 01 OF 05" />
 
-      <div style={{ position: "absolute", top: 100, left: 20, right: 20 }}>
-        <Eyebrow num="02" label="PICK A LENS" />
-        <div style={{ marginTop: 16, fontFamily: "var(--font-display)", fontSize: 44, lineHeight: 0.9, letterSpacing: "-0.02em", color: "var(--paper)", textTransform: "uppercase", paddingTop: 6 }}>
-          HOW DO<br/>YOU WANT<br/>TO GET COOKED.
+      {/* DIMMED HOME (the page underneath, briefly visible) — */}
+      {/* using a stripped placeholder so the modal context reads. */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.18, pointerEvents: "none" }}>
+        <StatusStrip right="LENS · SIGMA" />
+        <div style={{ position: "absolute", top: 60, left: 20, right: 20, fontFamily: "var(--font-display)", fontSize: 38, lineHeight: 0.9, letterSpacing: "-0.02em", color: "var(--paper)", textTransform: "uppercase" }}>
+          GET<br/>COOKED.
         </div>
       </div>
 
-      <div style={{ position: "absolute", top: 322, left: 20, right: 20, bottom: 180, overflow: "hidden" }}>
-        {paths.map((p, i) => (
-          <div key={p.num} style={{
-            display: "flex", alignItems: "center", padding: "14px 0",
-            borderTop: i === 0 ? "1px solid var(--hazard-25)" : "1px solid var(--border)",
-            borderBottom: i === paths.length - 1 ? "1px solid var(--border)" : "none",
-            background: p.active ? "var(--hazard)" : "transparent",
-            paddingLeft: p.active ? 14 : 0, paddingRight: p.active ? 14 : 0,
-            margin: p.active ? "0 -14px" : 0,
+      {/* BACKDROP — 60% ink, no blur */}
+      <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,10,0.6)" }} />
+
+      {/* SHEET */}
+      <div style={{
+        position: "absolute",
+        top: SHEET_TOP, left: 0, right: 0, bottom: 0,
+        background: "var(--ink)",
+        borderTop: "1px solid var(--hazard)",
+        display: "flex", flexDirection: "column",
+        boxShadow: "0 -8px 0 rgba(10,10,10,0.5)",
+      }}>
+        {/* HAZARD TAPE — 24px */}
+        <div style={{
+          height: HAZARD_H,
+          background: "repeating-linear-gradient(45deg, var(--ink) 0 7px, var(--hazard) 7px 14px)",
+          flexShrink: 0,
+        }} />
+
+        {/* EYEBROW + CLOSE */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px 10px",
+          borderBottom: "1px solid var(--border)",
+          flexShrink: 0,
+        }}>
+          <div style={{
+            fontFamily: "var(--font-mono)", fontWeight: 700,
+            fontSize: 10, letterSpacing: "0.28em",
+            color: "var(--hazard)", textTransform: "uppercase",
           }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 10, letterSpacing: "0.2em", color: p.active ? "var(--ink)" : "var(--ghost)", width: 30, opacity: p.active ? 0.7 : 1 }}>{p.num}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 22, letterSpacing: "-0.01em", color: p.active ? "var(--ink)" : "var(--paper)", paddingTop: 3 }}>{p.name}</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: p.active ? "var(--ink)" : "var(--paper-mute)", marginTop: 2, opacity: p.active ? 0.75 : 1 }}>{p.desc}</div>
-            </div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: p.active ? "var(--ink)" : "var(--ghost)" }}>→</div>
+            ── MODAL / PICK A LENS
           </div>
-        ))}
-      </div>
+          <div style={{
+            width: 26, height: 26,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: "1px solid var(--border)",
+            color: "var(--paper)",
+            fontFamily: "var(--font-display)", fontSize: 16, lineHeight: 1,
+            paddingTop: 2,
+          }}>✕</div>
+        </div>
 
-      <div style={{ position: "absolute", bottom: 100, left: 20, right: 20 }}>
-        <div style={{ background: "var(--hazard)", padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--ink)", letterSpacing: "-0.02em", paddingTop: 3 }}>GET COOKED</div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--ink)" }}>→</div>
+        {/* SCROLLABLE LIST */}
+        <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+          {paths.map((p, i) => (
+            <div key={p.num} style={{
+              display: "flex", alignItems: "center",
+              padding: p.active ? "14px 16px" : "14px 16px",
+              background: p.active ? "var(--hazard)" : "var(--ink-2)",
+              borderBottom: "1px solid " + (p.active ? "var(--ink)" : "var(--hazard-25)"),
+            }}>
+              <div style={{
+                fontFamily: "var(--font-mono)", fontWeight: 700,
+                fontSize: 11, letterSpacing: "0.22em",
+                color: p.active ? "var(--ink)" : "var(--ghost)",
+                width: 32,
+                opacity: p.active ? 0.75 : 1,
+              }}>{p.num}</div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 22, lineHeight: 1,
+                  letterSpacing: "-0.01em",
+                  color: p.active ? "var(--ink)" : "var(--paper)",
+                  paddingTop: 3,
+                  textTransform: "uppercase",
+                }}>{p.name}</div>
+                <div style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10, letterSpacing: "0.04em",
+                  color: p.active ? "var(--ink)" : "var(--ghost)",
+                  marginTop: 4,
+                  opacity: p.active ? 0.78 : 1,
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>{p.desc}</div>
+              </div>
+
+              <div style={{
+                fontFamily: "var(--font-display)", fontSize: 20,
+                color: p.active ? "var(--ink)" : "var(--ghost)",
+                marginLeft: 8,
+              }}>→</div>
+            </div>
+          ))}
+        </div>
+
+        {/* FOOTER META — "more is coming" */}
+        <div style={{
+          borderTop: "1px solid var(--border)",
+          padding: "10px 16px",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          fontFamily: "var(--font-mono)", fontWeight: 700,
+          fontSize: 9, letterSpacing: "0.22em",
+          color: "var(--ghost)", textTransform: "uppercase",
+          flexShrink: 0,
+        }}>
+          <span>▌SCROLLS · 7 OF 12 PATHS SHOWN</span>
+          <span style={{ color: "var(--hazard)" }}>W3 · +5</span>
         </div>
       </div>
-
-      <TabBar active="rate" />
     </div>
   );
 }

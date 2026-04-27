@@ -26,6 +26,8 @@ import { DailyChallengeBanner } from "../../src/components/daily/DailyChallengeB
 
 import { API_URL, ModerationError } from "../../src/lib/api";
 import { ModerationRejectCard } from "../../src/components/ModerationRejectCard";
+import { LensPicker } from "../../src/components/LensPicker";
+import { capture } from "../../src/lib/analytics";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const LOADING_MESSAGES = [
@@ -99,6 +101,7 @@ export default function VibeCheckScreen() {
   const [result, setResult] = useState<AuraResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modReject, setModReject] = useState<ModerationError | null>(null);
+  const [lensPickerOpen, setLensPickerOpen] = useState(false);
   const [showingLatest, setShowingLatest] = useState(false); // true = viewing saved latest, false = fresh check
   const [latestCheckId, setLatestCheckId] = useState<string | null>(null);
   const [latestIsSaved, setLatestIsSaved] = useState(false);
@@ -360,6 +363,7 @@ export default function VibeCheckScreen() {
   const handlePathSelect = (pathId: string) => {
     setSelectedPath(pathId);
     useAuthStore.getState().setPath(pathId);
+    capture("lens_picked", { sigma_path: pathId });
   };
 
   // ─── RESULT VIEW ───
@@ -451,48 +455,28 @@ export default function VibeCheckScreen() {
           <Text style={styles.eyebrow}>01 / PICK YOUR LENS</Text>
         </View>
 
-        {/* Path chips — horizontal scroll, single row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.pathChipsScroll}
-          contentContainerStyle={styles.pathChipsRow}
+        {/* Selected lens tile — taps to open modal */}
+        <TouchableOpacity
+          style={styles.lensTile}
+          onPress={() => setLensPickerOpen(true)}
+          activeOpacity={0.85}
         >
-          {SIGMA_PATHS.map((path, idx) => {
-            const isSelected = path.id === selectedPath;
-            return (
-              <TouchableOpacity
-                key={path.id}
-                style={[styles.pathChip, isSelected && styles.pathChipActive]}
-                onPress={() => handlePathSelect(path.id)}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.pathChipNum,
-                    isSelected && { color: COLORS.bg, opacity: 0.7 },
-                  ]}
-                >
-                  {String(idx + 1).padStart(2, "0")}
-                </Text>
-                <Text
-                  style={[
-                    styles.pathChipName,
-                    isSelected && { color: COLORS.bg },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {path.label.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Selected path description */}
-        <Text style={styles.pathDescription}>
-          {SIGMA_PATHS.find((p) => p.id === selectedPath)?.description ?? ""}
-        </Text>
+          <View style={styles.lensTileHeader}>
+            <Text style={styles.lensTileNum}>
+              {String(
+                SIGMA_PATHS.findIndex((p) => p.id === selectedPath) + 1
+              ).padStart(2, "0")}
+            </Text>
+            <Text style={styles.lensTileName} numberOfLines={1}>
+              {SIGMA_PATHS.find((p) => p.id === selectedPath)?.label.toUpperCase() ??
+                ""}
+            </Text>
+            <Text style={styles.lensTileChevron}>→</Text>
+          </View>
+          <Text style={styles.lensTileDesc} numberOfLines={2}>
+            {SIGMA_PATHS.find((p) => p.id === selectedPath)?.description ?? ""}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.eyebrowRow}>
           <View style={styles.eyebrowLine} />
@@ -540,6 +524,13 @@ export default function VibeCheckScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      <LensPicker
+        visible={lensPickerOpen}
+        selected={selectedPath}
+        onSelect={handlePathSelect}
+        onClose={() => setLensPickerOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -620,54 +611,44 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
   },
 
-  // ─── Path chips (horizontal scroll) ───
-  pathChipsScroll: {
-    marginHorizontal: -SPACING.lg,
-  },
-  pathChipsRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: SPACING.lg,
-  },
-  pathChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: COLORS.bgCard,
+  // ─── Lens tile — taps to open LensPicker modal ───
+  lensTile: {
+    backgroundColor: COLORS.ink2,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    overflow: "hidden",
-  },
-  pathChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  pathChipNum: {
-    fontFamily: FONTS.mono,
-    fontSize: 9,
-    color: COLORS.textMuted,
-    letterSpacing: 1.2,
-  },
-  pathChipName: {
-    fontFamily: FONTS.display,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    letterSpacing: -0.3,
-    lineHeight: 18,
-    includeFontPadding: false,
-    paddingTop: 2,
-    flexShrink: 0,
-  },
-  pathDescription: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-    lineHeight: 16,
-    paddingHorizontal: SPACING.xs,
+    padding: SPACING.md,
     marginTop: SPACING.sm,
+  },
+  lensTileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  lensTileNum: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 11,
+    color: COLORS.ghost,
+    letterSpacing: 2.2,
+  },
+  lensTileName: {
+    flex: 1,
+    fontFamily: FONTS.display,
+    fontSize: 22,
+    color: COLORS.paper,
+    letterSpacing: -0.3,
+  },
+  lensTileChevron: {
+    fontFamily: FONTS.display,
+    fontSize: 22,
+    color: COLORS.hazard,
+  },
+  lensTileDesc: {
+    fontFamily: FONTS.mono,
+    fontSize: 11,
+    color: COLORS.ghost,
+    letterSpacing: 0.4,
+    lineHeight: 16,
+    marginTop: SPACING.xs,
   },
   // legacy unused
   pathStar: {
