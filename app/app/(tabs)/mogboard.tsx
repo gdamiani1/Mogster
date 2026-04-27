@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, SPACING, FONTS } from "../../src/constants/theme";
@@ -21,8 +24,11 @@ interface LeaderboardEntry {
   username: string;
   peak_aura: number;
   tier?: string;
+  current_streak?: number;
   avatar_color?: string;
 }
+
+const SCREEN_W = Dimensions.get("window").width;
 
 function shortTier(tier?: string): string {
   if (!tier) return "—";
@@ -39,12 +45,148 @@ function shortTier(tier?: string): string {
 
 function tierColor(tier?: string): string {
   const s = shortTier(tier);
-  if (s === "SKIBIDI") return "#FFFFFF";
-  if (s === "MOG GOD" || s === "SIGMA" || s === "HIM/HER") return COLORS.primary;
-  if (s === "COOKING") return "#FFB84D";
-  if (s === "6-7") return "#C9A14A";
-  return "#6B6B5E";
+  if (s === "SKIBIDI") return COLORS.paper;
+  if (s === "MOG GOD" || s === "SIGMA" || s === "HIM/HER") return COLORS.hazard;
+  if (s === "COOKING") return COLORS.tierGold;
+  if (s === "6-7") return COLORS.tierBronze;
+  return COLORS.tierGrey;
 }
+
+// ─── #1 THRONE ROW ─────────────────────────────────────────────
+
+interface RowProps {
+  entry: LeaderboardEntry;
+  rank: number;
+  isMe: boolean;
+}
+
+function ThroneRow({ entry, isMe }: RowProps) {
+  // Shimmer sweep: translates from off-left to off-right, looping
+  const shimmer = useRef(new Animated.Value(-1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 3400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.delay(1200),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
+  const shimmerX = shimmer.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [-SCREEN_W * 0.5, SCREEN_W * 1.2],
+  });
+
+  const peakLabel = entry.peak_aura ? `PEAK ${entry.peak_aura}` : "PEAK —";
+  const streakLabel = entry.current_streak ? ` · ${entry.current_streak} STREAK` : "";
+
+  return (
+    <View style={[styles.throneWrapper, isMe && { borderColor: COLORS.mint }]}>
+      <View style={styles.throne}>
+        {/* Crown stamp top-right */}
+        <View style={styles.crownStamp}>
+          <Text style={styles.crownStampText}>★ MOG GOD</Text>
+        </View>
+
+        <View style={styles.throneRankCol}>
+          <Text style={styles.throneRank}>01</Text>
+          <Text style={styles.throneCrown}>▌ HIM</Text>
+        </View>
+
+        <View style={styles.throneBody}>
+          <Text style={styles.throneUser}>@{entry.username.toUpperCase()}</Text>
+          <Text style={styles.throneMeta}>
+            {peakLabel}{streakLabel} · UNCONTESTED
+          </Text>
+        </View>
+
+        <Text style={styles.throneScore}>{entry.peak_aura}</Text>
+
+        {/* Shimmer sweep */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.shimmer,
+            { transform: [{ translateX: shimmerX }] },
+          ]}
+        />
+      </View>
+
+      {/* Streak bar — bottom edge, dashed ink-on-hazard */}
+      <View style={styles.streakBar}>
+        {Array.from({ length: 24 }).map((_, i) => (
+          <View key={i} style={styles.streakSegment} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── #2/#3 PODIUM ROW ──────────────────────────────────────────
+
+function PodiumRow({ entry, rank, isMe }: RowProps) {
+  return (
+    <View style={[styles.podiumRow, isMe && styles.youRow]}>
+      <View style={styles.rankCol}>
+        <Text style={[styles.podiumRank, isMe && styles.youText]}>
+          {String(rank).padStart(2, "0")}
+        </Text>
+        <View style={[styles.podiumUnderline, isMe && { backgroundColor: COLORS.mint }]} />
+      </View>
+      <View style={styles.nameCol}>
+        <Text style={[styles.name, isMe && styles.youText]}>
+          @{entry.username.toUpperCase()}
+        </Text>
+        <Text style={[styles.tier, { color: isMe ? COLORS.mint : tierColor(entry.tier) }]}>
+          {shortTier(entry.tier)}
+        </Text>
+      </View>
+      <Text style={[styles.score, { color: isMe ? COLORS.mint : COLORS.paper }]}>
+        {entry.peak_aura}
+      </Text>
+    </View>
+  );
+}
+
+// ─── STANDARD ROW (rank 4+) ────────────────────────────────────
+
+function StandardRow({ entry, rank, isMe }: RowProps) {
+  return (
+    <View style={[styles.row, isMe && styles.youRow]}>
+      {isMe && (
+        <View style={styles.deltaBadge}>
+          <Text style={styles.deltaText}>▲ YOU</Text>
+        </View>
+      )}
+      <View style={styles.rankCol}>
+        <Text style={[styles.rank, isMe && styles.youText]}>
+          {String(rank).padStart(2, "0")}
+        </Text>
+      </View>
+      <View style={styles.nameCol}>
+        <Text style={[styles.name, isMe && styles.youText]}>
+          @{entry.username.toUpperCase()}
+        </Text>
+        <Text style={[styles.tier, { color: isMe ? COLORS.mint : tierColor(entry.tier) }]}>
+          {shortTier(entry.tier)}
+        </Text>
+      </View>
+      <Text style={[styles.score, { color: isMe ? COLORS.mint : tierColor(entry.tier) }]}>
+        {entry.peak_aura}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Screen ────────────────────────────────────────────────────
 
 export default function MogBoardScreen() {
   const { profile } = useAuthStore();
@@ -83,27 +225,13 @@ export default function MogBoardScreen() {
 
   const selectedPathObj = SIGMA_PATHS.find((p) => p.id === selectedPath);
 
-  // ─── List row ───
   const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     const rank = index + 1;
     const isMe = profile?.id === item.id;
-    const color = tierColor(item.tier);
-    return (
-      <View style={[styles.row, isMe && styles.rowMe]}>
-        <View style={styles.rankCol}>
-          <Text style={[styles.rank, rank <= 3 && { color: COLORS.primary }]}>
-            {String(rank).padStart(2, "0")}
-          </Text>
-        </View>
-        <View style={styles.nameCol}>
-          <Text style={styles.name}>@{item.username}</Text>
-          <Text style={[styles.tier, { color }]}>{shortTier(item.tier)}</Text>
-        </View>
-        <Text style={[styles.score, { color }]} numberOfLines={1}>
-          {item.peak_aura}
-        </Text>
-      </View>
-    );
+
+    if (rank === 1) return <ThroneRow entry={item} rank={rank} isMe={isMe} />;
+    if (rank === 2 || rank === 3) return <PodiumRow entry={item} rank={rank} isMe={isMe} />;
+    return <StandardRow entry={item} rank={rank} isMe={isMe} />;
   };
 
   return (
@@ -115,7 +243,7 @@ export default function MogBoardScreen() {
           <Text style={styles.eyebrow}>SECTION 02 · THE RANKING</Text>
         </View>
         <Text style={styles.title}>MOG{"\n"}BOARD.</Text>
-        <Text style={styles.subtitle}>WHO'S ACTUALLY HIM RIGHT NOW</Text>
+        <Text style={styles.subtitle}>WHO&apos;S ACTUALLY HIM RIGHT NOW</Text>
       </View>
 
       {/* Tabs */}
@@ -167,7 +295,7 @@ export default function MogBoardScreen() {
                   <Text
                     style={[
                       styles.pathOptionText,
-                      p.id === selectedPath && { color: COLORS.bg },
+                      p.id === selectedPath && { color: COLORS.ink },
                     ]}
                   >
                     {p.label.toUpperCase()}
@@ -193,7 +321,7 @@ export default function MogBoardScreen() {
       {/* List */}
       {loading && !refreshing ? (
         <View style={styles.center}>
-          <ActivityIndicator color={COLORS.primary} size="small" />
+          <ActivityIndicator color={COLORS.hazard} size="small" />
         </View>
       ) : (
         <FlatList
@@ -205,14 +333,14 @@ export default function MogBoardScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.primary}
+              tintColor={COLORS.hazard}
             />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyLabel}>NO DATA</Text>
               <Text style={styles.emptyText}>
-                NO ONE'S COOKING YET.{"\n"}BE THE FIRST TO DROP A PIC.
+                NO ONE&apos;S COOKING YET.{"\n"}BE THE FIRST TO DROP A PIC.
               </Text>
             </View>
           }
@@ -225,7 +353,7 @@ export default function MogBoardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.ink,
   },
 
   // ─── Header ───
@@ -234,7 +362,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 214, 10, 0.12)",
+    borderBottomColor: COLORS.hazard12,
   },
   eyebrowRow: {
     flexDirection: "row",
@@ -245,13 +373,13 @@ const styles = StyleSheet.create({
   eyebrowLine: {
     width: 20,
     height: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.hazard,
     opacity: 0.6,
   },
   eyebrow: {
     fontFamily: FONTS.monoBold,
     fontSize: 9,
-    color: COLORS.primary,
+    color: COLORS.hazard,
     letterSpacing: 2.5,
   },
   title: {
@@ -260,14 +388,14 @@ const styles = StyleSheet.create({
     lineHeight: 74,
     includeFontPadding: false,
     paddingTop: 8,
-    color: COLORS.textPrimary,
+    color: COLORS.paper,
     letterSpacing: -2,
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: FONTS.mono,
     fontSize: 10,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     letterSpacing: 1.5,
   },
 
@@ -287,16 +415,16 @@ const styles = StyleSheet.create({
     borderRightColor: COLORS.border,
   },
   tabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.hazard,
   },
   tabText: {
     fontFamily: FONTS.monoBold,
     fontSize: 10,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     letterSpacing: 1.8,
   },
   tabTextActive: {
-    color: COLORS.bg,
+    color: COLORS.ink,
   },
 
   // ─── Path picker ───
@@ -313,31 +441,31 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.ink2,
   },
   pathPickerLabel: {
     fontFamily: FONTS.mono,
     fontSize: 9,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     letterSpacing: 1.5,
   },
   pathPickerValue: {
     flex: 1,
     fontFamily: FONTS.display,
     fontSize: 18,
-    color: COLORS.textPrimary,
+    color: COLORS.paper,
     letterSpacing: -0.5,
   },
   pathChevron: {
     fontFamily: FONTS.mono,
-    color: COLORS.primary,
+    color: COLORS.hazard,
     fontSize: 10,
   },
   pathDropdown: {
     borderWidth: 1,
     borderColor: COLORS.border,
     borderTopWidth: 0,
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.ink2,
   },
   pathOption: {
     paddingVertical: 10,
@@ -346,12 +474,12 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   pathOptionActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.hazard,
   },
   pathOptionText: {
     fontFamily: FONTS.display,
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: COLORS.paper,
     letterSpacing: -0.3,
   },
 
@@ -364,29 +492,157 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "rgba(255, 214, 10, 0.12)",
+    borderColor: COLORS.hazard12,
   },
   columnLabel: {
     fontFamily: FONTS.monoBold,
     fontSize: 8,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     letterSpacing: 2,
   },
 
-  // ─── Row ───
+  // ─── List wrapper ───
   list: {
     paddingBottom: SPACING.xxl,
   },
+
+  // ─── Throne (rank 1) ───
+  throneWrapper: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 2,
+    borderColor: COLORS.hazard,
+  },
+  throne: {
+    backgroundColor: COLORS.hazard,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  crownStamp: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: COLORS.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    transform: [{ rotate: "3deg" }],
+    zIndex: 3,
+  },
+  crownStampText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    color: COLORS.hazard,
+    letterSpacing: 2.5,
+  },
+  throneRankCol: {
+    width: 96,
+  },
+  throneRank: {
+    fontFamily: FONTS.display,
+    fontSize: 64,
+    lineHeight: 56,
+    color: COLORS.ink,
+    letterSpacing: -3,
+    includeFontPadding: false,
+    paddingTop: 4,
+  },
+  throneCrown: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    color: COLORS.ink,
+    letterSpacing: 3,
+    marginTop: 4,
+  },
+  throneBody: {
+    flex: 1,
+    minWidth: 0,
+    zIndex: 2,
+  },
+  throneUser: {
+    fontFamily: FONTS.display,
+    fontSize: 22,
+    color: COLORS.ink,
+    letterSpacing: -0.3,
+    paddingTop: 2,
+  },
+  throneMeta: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: COLORS.ink,
+    letterSpacing: 1.6,
+    marginTop: 2,
+    opacity: 0.75,
+  },
+  throneScore: {
+    fontFamily: FONTS.display,
+    fontSize: 56,
+    lineHeight: 50,
+    color: COLORS.ink,
+    letterSpacing: -3,
+    includeFontPadding: false,
+    paddingTop: 4,
+  },
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    transform: [{ skewX: "-15deg" }],
+    opacity: 0.7,
+  },
+  streakBar: {
+    flexDirection: "row",
+    height: 4,
+    backgroundColor: COLORS.hazard,
+  },
+  streakSegment: {
+    flex: 1,
+    backgroundColor: COLORS.ink,
+    marginHorizontal: 2,
+  },
+
+  // ─── Podium (ranks 2 + 3) ───
+  podiumRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 14,
+    backgroundColor: COLORS.ink2,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.hazard25,
+  },
+  podiumRank: {
+    fontFamily: FONTS.display,
+    fontSize: 28,
+    lineHeight: 28,
+    color: COLORS.hazard,
+    letterSpacing: -1.5,
+    includeFontPadding: false,
+    paddingTop: 4,
+  },
+  podiumUnderline: {
+    width: 28,
+    height: 2,
+    backgroundColor: COLORS.hazard,
+    marginTop: 4,
+  },
+
+  // ─── Standard row ───
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: SPACING.lg,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 214, 10, 0.06)",
-  },
-  rowMe: {
-    backgroundColor: "rgba(255, 214, 10, 0.04)",
+    borderBottomColor: COLORS.hazard06,
   },
   rankCol: {
     width: 44,
@@ -394,7 +650,7 @@ const styles = StyleSheet.create({
   rank: {
     fontFamily: FONTS.monoBold,
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     letterSpacing: 1.5,
   },
   nameCol: {
@@ -403,7 +659,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: FONTS.display,
     fontSize: 20,
-    color: COLORS.textPrimary,
+    color: COLORS.paper,
     letterSpacing: -0.5,
     lineHeight: 24,
     includeFontPadding: false,
@@ -426,6 +682,31 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  // ─── YOU — mint glow on user's row (any rank) ───
+  youRow: {
+    backgroundColor: "rgba(127,255,161,0.06)",
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.mint,
+  },
+  youText: {
+    color: COLORS.mint,
+  },
+  deltaBadge: {
+    position: "absolute",
+    top: 4,
+    right: 8,
+    backgroundColor: COLORS.mint,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 3,
+  },
+  deltaText: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    color: COLORS.ink,
+    letterSpacing: 2.5,
+  },
+
   // ─── Empty / loading ───
   center: {
     flex: 1,
@@ -440,13 +721,13 @@ const styles = StyleSheet.create({
   emptyLabel: {
     fontFamily: FONTS.monoBold,
     fontSize: 11,
-    color: COLORS.primary,
+    color: COLORS.hazard,
     letterSpacing: 3,
     marginBottom: SPACING.md,
   },
   emptyText: {
     fontFamily: FONTS.mono,
-    color: COLORS.textMuted,
+    color: COLORS.ghost,
     fontSize: 11,
     textAlign: "center",
     lineHeight: 18,

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -10,17 +10,14 @@ import {
   Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { COLORS, SPACING, FONTS } from "../constants/theme";
+import { COLORS, SPACING, FONTS, displayText } from "../constants/theme";
 import GrainOverlay from "./design/GrainOverlay";
-import CropMarks from "./design/CropMarks";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
 const CARD_HEIGHT = Math.round(CARD_WIDTH * (16 / 9));
 
 // ─── Lazy view-shot + media-library ───
-// These use TurboModuleRegistry.getEnforcing which can fail on legacy bridge.
-// If they fail to load, share/download fall back gracefully.
 let captureRefFn: any = null;
 let MediaLibrary: any = null;
 try {
@@ -53,16 +50,16 @@ interface AuraResultCardProps {
   onToggleSave?: () => void;
 }
 
-function getTierTreatment(tier: string): { color: string; label: string } {
+function getTierLabel(tier: string): string {
   const upper = tier.toUpperCase();
-  if (upper.includes("SKIBIDI")) return { color: "#FFFFFF", label: "SKIBIDI LEGEND" };
-  if (upper.includes("MOG GOD")) return { color: COLORS.primary, label: "MOG GOD" };
-  if (upper.includes("SIGMA")) return { color: COLORS.primary, label: "SIGMA" };
-  if (upper.includes("HIM") || upper.includes("HER")) return { color: COLORS.primary, label: "HIM / HER" };
-  if (upper.includes("COOK")) return { color: "#FFB84D", label: "COOKING" };
-  if (upper.includes("6") || upper.includes("SEVEN")) return { color: "#C9A14A", label: "SIX — SEVEN" };
-  if (upper.includes("NPC")) return { color: "#8A8878", label: "NPC" };
-  return { color: "#6B6B5E", label: "DOWN BAD" };
+  if (upper.includes("SKIBIDI")) return "SKIBIDI LEGEND";
+  if (upper.includes("MOG GOD")) return "MOG GOD";
+  if (upper.includes("SIGMA")) return "SIGMA";
+  if (upper.includes("HIM") || upper.includes("HER")) return "HIM / HER";
+  if (upper.includes("COOK")) return "COOKING";
+  if (upper.includes("6") || upper.includes("SEVEN")) return "SIX — SEVEN";
+  if (upper.includes("NPC")) return "NPC";
+  return "DOWN BAD";
 }
 
 function pathStamp(path?: string): string {
@@ -82,12 +79,21 @@ function pathStamp(path?: string): string {
 function issueNumber(score: number): string {
   const day = new Date();
   const seed = score + day.getDate() * 37 + day.getMonth() * 101;
-  return `#${String(seed).padStart(5, "0")}`;
+  return `N°${String(seed).padStart(5, "0")}`;
 }
 
 function todayStamp(): string {
   const d = new Date();
   return `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}.${String(d.getFullYear()).slice(2)}`;
+}
+
+// Truncate a stat label to a 3-4 letter abbreviation for the column row.
+function abbrev(label: string): string {
+  const upper = label.toUpperCase();
+  if (upper.length <= 4) return upper;
+  // Strip vowels after first char until we fit, fall back to first 4
+  const vowelsStripped = upper.charAt(0) + upper.slice(1).replace(/[AEIOU]/g, "");
+  return vowelsStripped.length <= 4 ? vowelsStripped : upper.slice(0, 4);
 }
 
 export default function AuraResultCard({
@@ -99,9 +105,8 @@ export default function AuraResultCard({
   onToggleSave,
 }: AuraResultCardProps) {
   const cardRef = useRef<View>(null);
-  const [view, setView] = useState<"roast" | "stats">("roast");
-  const hasStats = Array.isArray(result.stats) && result.stats.length > 0;
-  const tierTreatment = getTierTreatment(result.tier);
+  const tierLabel = getTierLabel(result.tier);
+  const stats = (result.stats || []).slice(0, 5);
 
   const captureCard = async (): Promise<string | null> => {
     try {
@@ -157,7 +162,7 @@ export default function AuraResultCard({
       {/* Card — ref for capture */}
       <View ref={cardRef} collapsable={false} style={styles.captureArea}>
         <View style={styles.card}>
-          {/* Photo — sits in top 65% so face is visible above text */}
+          {/* Photo — bleeds 65% from top */}
           {imageUri && (
             <Image
               source={{ uri: imageUri }}
@@ -166,125 +171,82 @@ export default function AuraResultCard({
             />
           )}
 
-          {/* Gradient — starts lower so more image is visible */}
+          {/* Photo → ink fade */}
           <LinearGradient
             colors={[
               "transparent",
-              "rgba(10,10,10,0.6)",
-              "rgba(10,10,10,0.92)",
-              COLORS.bgCard,
+              "rgba(10,10,10,0.94)",
+              COLORS.ink,
             ]}
-            locations={[0, 0.3, 0.6, 1]}
+            locations={[0.28, 0.68, 1]}
             style={styles.gradient}
           />
 
           <GrainOverlay opacity={0.06} />
-          <CropMarks color={COLORS.primary} size={18} inset={14} opacity={0.5} />
 
-          {/* Top metadata */}
+          {/* Crop marks — 18px hazard hairlines, all 4 corners */}
+          <View style={[styles.cropMark, styles.cropTL]} />
+          <View style={[styles.cropMark, styles.cropTR]} />
+          <View style={[styles.cropMark, styles.cropBL]} />
+          <View style={[styles.cropMark, styles.cropBR]} />
+
+          {/* Top strip — wordmark left, username (or issue/date) right */}
           <View style={styles.topStrip}>
-            <View style={styles.pathStamp}>
-              <Text style={styles.pathStampText}>{pathStamp(sigmaPath)}</Text>
-            </View>
-            <View style={styles.issueStamp}>
-              <Text style={styles.issueNumber}>{issueNumber(result.aura_score)}</Text>
-              <Text style={styles.issueDate}>{todayStamp()}</Text>
-            </View>
+            <Text style={styles.wordmark}>
+              MOGSTER<Text style={styles.wordmarkDot}>.</Text>
+            </Text>
+            <Text style={styles.topMeta}>
+              {username ? `@${username.toUpperCase()}` : `${issueNumber(result.aura_score)} · ${todayStamp()}`}
+            </Text>
           </View>
 
-          {/* Bottom editorial block — compact to leave more room for photo */}
+          {/* Path stamp — rotated -2deg, hazard fill */}
+          <View style={styles.pathStamp}>
+            <Text style={styles.pathStampText}>{pathStamp(sigmaPath)}</Text>
+          </View>
+
+          {/* Bottom editorial block */}
           <View style={styles.bottomBlock}>
-            <View style={styles.tierRow}>
-              <Text style={[styles.tierLabel, { color: tierTreatment.color }]}>
-                {tierTreatment.label}
-              </Text>
-              <View style={[styles.tierLine, { backgroundColor: tierTreatment.color }]} />
-            </View>
+            <Text style={styles.auraEyebrow}>▌ AURA</Text>
 
-            <View style={styles.scoreRow}>
-              <Text
-                style={[styles.megaScore, { color: tierTreatment.color }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {String(result.aura_score)}
-              </Text>
-              <Text style={styles.auraTag}>AURA</Text>
-            </View>
+            <Text
+              style={styles.megaScore}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {String(result.aura_score)}
+            </Text>
 
-            {view === "roast" ? (
-              <View style={styles.roastBlock}>
-                <Text style={styles.roast}>
-                  <Text style={styles.quoteMark}>" </Text>
-                  {result.roast.toUpperCase()}
-                  <Text style={styles.quoteMark}> "</Text>
-                </Text>
-                {result.personality_read ? (
-                  <Text style={styles.personalityRead}>
-                    {result.personality_read}
-                  </Text>
-                ) : null}
-              </View>
-            ) : (
-              <View style={styles.statsBlock}>
-                {(result.stats || []).map((stat) => (
-                  <View key={stat.label} style={styles.statRow}>
-                    <Text style={styles.statLabel}>{stat.label.toUpperCase()}</Text>
-                    <View style={styles.statBarBg}>
-                      <View
-                        style={[
-                          styles.statBarFill,
-                          { width: `${stat.score}%`, backgroundColor: tierTreatment.color },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.statVal, { color: tierTreatment.color }]}>
-                      {stat.score}
-                    </Text>
+            <Text style={styles.tierLabel}>{tierLabel}</Text>
+
+            <View style={styles.divider} />
+
+            {/* 5 stat columns */}
+            {stats.length > 0 && (
+              <View style={styles.statsRow}>
+                {stats.map((stat) => (
+                  <View key={stat.label} style={styles.statCol}>
+                    <Text style={styles.statValue}>{stat.score}</Text>
+                    <Text style={styles.statLabel}>{abbrev(stat.label)}</Text>
                   </View>
                 ))}
               </View>
             )}
 
-            <View style={styles.footer}>
-              <Text style={styles.footerUser}>{username ? `@${username}` : ""}</Text>
-              <Text style={styles.footerBrand}>MOGSTER / ISSUE 01</Text>
-            </View>
+            <Text style={styles.roast} numberOfLines={3}>
+              &quot;{result.roast.toLowerCase()}&quot;
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* View toggle */}
-      {hasStats && (
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, view === "roast" && styles.toggleBtnActive]}
-            onPress={() => setView("roast")}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleText, view === "roast" && styles.toggleTextActive]}>
-              ROAST
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, view === "stats" && styles.toggleBtnActive]}
-            onPress={() => setView("stats")}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleText, view === "stats" && styles.toggleTextActive]}>
-              STATS
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Actions */}
+      {/* Actions — outside the captured card */}
       <View style={styles.actions}>
         {onToggleSave && (
           <TouchableOpacity
             style={[
               styles.iconBtn,
-              isSaved && { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+              isSaved && { backgroundColor: COLORS.hazard, borderColor: COLORS.hazard },
             ]}
             onPress={onToggleSave}
             activeOpacity={0.7}
@@ -292,7 +254,7 @@ export default function AuraResultCard({
             <Text
               style={[
                 styles.iconBtnIcon,
-                { color: isSaved ? COLORS.bg : COLORS.textSecondary },
+                { color: isSaved ? COLORS.ink : COLORS.paperMute },
               ]}
             >
               {isSaved ? "★" : "☆"}
@@ -300,24 +262,27 @@ export default function AuraResultCard({
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.actionBtn, styles.primaryBtn]}
+          style={styles.shareBtn}
           onPress={handleShare}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Text style={styles.primaryBtnIcon}>↗</Text>
-          <Text style={styles.primaryBtnText}>SHARE</Text>
+          <Text style={styles.shareBtnText}>↗ SHARE</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconBtn}
           onPress={handleDownload}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Text style={[styles.iconBtnIcon, { color: COLORS.textSecondary }]}>↓</Text>
+          <Text style={[styles.iconBtnIcon, { color: COLORS.paperMute }]}>↓</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────
+
+const CROP = 18;
 
 const styles = StyleSheet.create({
   wrapper: { alignItems: "center" },
@@ -330,12 +295,13 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.ink2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     position: "relative",
     overflow: "hidden",
   },
 
-  // Photo sits in top portion, bleeds past midpoint into the gradient zone
   photo: {
     position: "absolute",
     top: 0,
@@ -344,205 +310,134 @@ const styles = StyleSheet.create({
     height: "75%",
   },
 
-  // Gradient only covers bottom portion where text lives
   gradient: {
     position: "absolute",
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
-    height: "55%",
   },
+
+  // Crop marks — 18px L/T/R/B 1px hazard
+  cropMark: {
+    position: "absolute",
+    width: CROP,
+    height: CROP,
+    borderColor: COLORS.hazard,
+  },
+  cropTL: { top: 8, left: 8, borderTopWidth: 1, borderLeftWidth: 1 },
+  cropTR: { top: 8, right: 8, borderTopWidth: 1, borderRightWidth: 1 },
+  cropBL: { bottom: 8, left: 8, borderBottomWidth: 1, borderLeftWidth: 1 },
+  cropBR: { bottom: 8, right: 8, borderBottomWidth: 1, borderRightWidth: 1 },
 
   topStrip: {
     position: "absolute",
-    top: SPACING.lg + 4,
-    left: SPACING.lg + 4,
-    right: SPACING.lg + 4,
+    top: 14,
+    left: 14,
+    right: 14,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     zIndex: 4,
   },
+  wordmark: {
+    fontFamily: FONTS.display,
+    fontSize: 14,
+    color: COLORS.paper,
+    letterSpacing: -0.3,
+  },
+  wordmarkDot: { color: COLORS.hazard },
+  topMeta: {
+    fontFamily: FONTS.mono,
+    fontSize: 9,
+    color: COLORS.paperMute,
+    letterSpacing: 2,
+  },
+
   pathStamp: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    position: "absolute",
+    top: 56,
+    left: 14,
+    backgroundColor: COLORS.hazard,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     transform: [{ rotate: "-2deg" }],
+    zIndex: 4,
   },
   pathStampText: {
     fontFamily: FONTS.monoBold,
-    fontSize: 10,
-    color: COLORS.bg,
-    letterSpacing: 1.2,
-  },
-  issueStamp: {
-    alignItems: "flex-end",
-  },
-  issueNumber: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: COLORS.primary,
-  },
-  issueDate: {
-    fontFamily: FONTS.mono,
     fontSize: 9,
-    letterSpacing: 1.2,
-    color: COLORS.primary,
-    opacity: 0.7,
+    color: COLORS.ink,
+    letterSpacing: 1.5,
   },
 
   bottomBlock: {
     position: "absolute",
-    bottom: SPACING.md,
-    left: SPACING.lg,
-    right: SPACING.lg,
+    bottom: 18,
+    left: 14,
+    right: 14,
     zIndex: 4,
   },
-  tierRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: -4,
+  auraEyebrow: {
+    fontFamily: FONTS.monoBold,
+    fontSize: 9,
+    color: COLORS.hazard,
+    letterSpacing: 3,
+    marginBottom: 4,
+  },
+  megaScore: {
+    ...displayText(112),
+    color: COLORS.paper,
+    letterSpacing: -6,
+    textTransform: "uppercase",
   },
   tierLabel: {
     fontFamily: FONTS.display,
-    fontSize: 14,
-    letterSpacing: 2,
+    fontSize: 22,
+    color: COLORS.hazard,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
+    marginTop: -4,
   },
-  tierLine: {
-    flex: 1,
+  divider: {
     height: 1,
-    opacity: 0.3,
+    backgroundColor: COLORS.hazard25,
+    marginTop: 10,
+    marginBottom: 8,
   },
 
-  scoreRow: {
+  statsRow: {
     flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 2,
-    marginTop: -8,
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
-  megaScore: {
-    fontFamily: FONTS.display,
-    fontSize: 80,
-    letterSpacing: -2,
-    textShadowColor: "rgba(0,0,0,0.7)",
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 12,
-  },
-  auraTag: {
-    fontFamily: FONTS.monoBold,
-    fontSize: 10,
-    color: COLORS.primary,
-    letterSpacing: 2,
-    marginLeft: 14,
-  },
-
-  roastBlock: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(255, 214, 10, 0.2)",
-    paddingVertical: 8,
-    marginBottom: 6,
-  },
-  roast: {
-    fontFamily: FONTS.display,
-    fontSize: 14,
-    lineHeight: 17,
-    color: COLORS.textPrimary,
-    letterSpacing: -0.2,
-  },
-  quoteMark: {
-    color: COLORS.primary,
-    fontSize: 16,
-  },
-  personalityRead: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    lineHeight: 14,
-    color: "rgba(245,241,230,0.72)",
-    marginTop: 6,
-    letterSpacing: 0.2,
-  },
-
-  statsBlock: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(255, 214, 10, 0.2)",
-    paddingVertical: 8,
-    marginBottom: 6,
-    gap: 4,
-  },
-  statRow: {
-    flexDirection: "row",
+  statCol: {
+    flex: 1,
     alignItems: "center",
-    gap: 8,
+  },
+  statValue: {
+    fontFamily: FONTS.display,
+    fontSize: 18,
+    color: COLORS.paper,
+    letterSpacing: -0.5,
+    paddingTop: 2,
   },
   statLabel: {
     fontFamily: FONTS.mono,
-    fontSize: 9,
-    color: "rgba(245,241,230,0.65)",
-    letterSpacing: 0.8,
-    width: 84,
-  },
-  statBarBg: {
-    flex: 1,
-    height: 5,
-    backgroundColor: "rgba(255, 214, 10, 0.1)",
-  },
-  statBarFill: {
-    height: "100%",
-  },
-  statVal: {
-    fontFamily: FONTS.monoBold,
-    fontSize: 11,
-    width: 24,
-    textAlign: "right",
-  },
-
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  footerUser: {
-    fontFamily: FONTS.mono,
-    fontSize: 9,
-    color: "rgba(245,241,230,0.45)",
+    fontSize: 8,
+    color: COLORS.paperMute,
     letterSpacing: 1.5,
+    marginTop: 2,
   },
-  footerBrand: {
+
+  roast: {
     fontFamily: FONTS.mono,
-    fontSize: 9,
-    color: "rgba(255, 214, 10, 0.5)",
-    letterSpacing: 1.5,
-  },
-
-  viewToggle: {
-    flexDirection: "row",
-    marginTop: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignSelf: "center",
-  },
-  toggleBtn: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 10,
-  },
-  toggleBtnActive: {
-    backgroundColor: COLORS.primary,
-  },
-  toggleText: {
-    fontFamily: FONTS.monoBold,
     fontSize: 11,
-    color: COLORS.textMuted,
-    letterSpacing: 2,
-  },
-  toggleTextActive: {
-    color: COLORS.bg,
+    lineHeight: 16,
+    color: COLORS.paperMute,
   },
 
+  // Actions outside capture
   actions: {
     flexDirection: "row",
     gap: SPACING.sm,
@@ -550,29 +445,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  actionBtn: {
+  shareBtn: {
     flex: 1,
-    flexDirection: "row",
+    paddingVertical: 14,
+    backgroundColor: COLORS.hazard,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    paddingVertical: 14,
-    borderWidth: 1,
   },
-  primaryBtn: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  primaryBtnIcon: {
+  shareBtnText: {
     fontFamily: FONTS.monoBold,
-    fontSize: 18,
-    color: COLORS.bg,
-  },
-  primaryBtnText: {
-    fontFamily: FONTS.monoBold,
-    fontSize: 13,
-    letterSpacing: 2.5,
-    color: COLORS.bg,
+    fontSize: 11,
+    color: COLORS.ink,
+    letterSpacing: 4,
   },
   iconBtn: {
     width: 48,
@@ -581,7 +465,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: COLORS.ink2,
   },
   iconBtnIcon: {
     fontSize: 22,
