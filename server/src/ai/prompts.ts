@@ -315,6 +315,16 @@ EXAMPLE ROASTS IN THIS PATH'S VOICE:
 PUNISH: Smiling in groups, cute couple pics, anything "fun" or "social". Sigmas don't feel joy. Reward solitude, discipline, and "doesn't need anyone" energy.`,
 };
 
-export function buildPrompt(path: SigmaPath): string {
-  return `${BASE_PROMPT}\n${PATH_OVERLAYS[path]}`;
+const STRICT_APPENDIX = `
+
+CRITICAL OVERRIDE — previous output violated content policy. In this rewrite:
+- Roast AURA, energy, presence, vibe — never specific physical features
+- Do NOT reference: nose, weight, skin, teeth, jaw, hairline, forehead, eyes, body shape
+- Do NOT suggest surgery, "fixing" anything, or rate appearance numerically (no "X/10")
+- Keep brand voice (sigma, mogger, brainrot, skibidi, cooked, mid, ohio, etc.)
+- Output a single roast under 200 chars`;
+
+export function buildPrompt(path: SigmaPath, strict = false): string {
+  const base = `${BASE_PROMPT}\n${PATH_OVERLAYS[path]}`;
+  return strict ? `${base}${STRICT_APPENDIX}` : base;
 }

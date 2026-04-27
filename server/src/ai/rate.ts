@@ -1,14 +1,23 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { buildPrompt } from "./prompts";
 import { AuraResult, SigmaPath } from "./types";
+import { ModerationBlockError } from "./errors";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+const SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT,        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+];
+
 export async function rateAura(
   imageBase64: string,
-  path: SigmaPath
+  path: SigmaPath,
+  opts: { strict?: boolean } = {}
 ): Promise<AuraResult> {
-  const systemPrompt = buildPrompt(path);
+  const systemPrompt = buildPrompt(path, opts.strict ?? false);
 
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
@@ -20,6 +29,7 @@ export async function rateAura(
       thinkingConfig: { thinkingBudget: 0 },
     },
     systemInstruction: systemPrompt,
+    safetySettings: SAFETY_SETTINGS,
   });
 
   const result = await model.generateContent([
@@ -31,6 +41,13 @@ export async function rateAura(
     },
     { text: "Rate this person's aura. Return ONLY the JSON." },
   ]);
+
+  const candidate = result.response.candidates?.[0];
+
+  // SAFETY block: don't call .text() — it throws when the response was blocked.
+  if (candidate?.finishReason === "SAFETY") {
+    throw new ModerationBlockError(candidate.safetyRatings, "image_input");
+  }
 
   const raw = result.response.text();
   if (!raw) throw new Error("AI returned empty response — aura too powerful to compute fr");
