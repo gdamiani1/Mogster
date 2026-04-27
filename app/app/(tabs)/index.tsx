@@ -24,7 +24,8 @@ import AuraResultCard from "../../src/components/AuraResultCard";
 import Wordmark from "../../src/components/design/Wordmark";
 import { DailyChallengeBanner } from "../../src/components/daily/DailyChallengeBanner";
 
-import { API_URL } from "../../src/lib/api";
+import { API_URL, ModerationError } from "../../src/lib/api";
+import { ModerationRejectCard } from "../../src/components/ModerationRejectCard";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const LOADING_MESSAGES = [
@@ -78,6 +79,9 @@ async function checkAura(
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
+    if (response.status === 403 && err.error === "AURA_UNREADABLE") {
+      throw new ModerationError(err);
+    }
     throw new Error(err.error || `API error: ${response.status}`);
   }
 
@@ -94,6 +98,7 @@ export default function VibeCheckScreen() {
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [result, setResult] = useState<AuraResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modReject, setModReject] = useState<ModerationError | null>(null);
   const [showingLatest, setShowingLatest] = useState(false); // true = viewing saved latest, false = fresh check
   const [latestCheckId, setLatestCheckId] = useState<string | null>(null);
   const [latestIsSaved, setLatestIsSaved] = useState(false);
@@ -252,7 +257,11 @@ export default function VibeCheckScreen() {
       // Reschedule streak-saver ping for tomorrow 22:00 (fire-and-forget)
       void scheduleStreakSaver();
     } catch (err: any) {
-      setError(err.message || "Something went wrong no cap");
+      if (err instanceof ModerationError) {
+        setModReject(err);
+      } else {
+        setError(err.message || "Something went wrong no cap");
+      }
     } finally {
       setLoading(false);
     }
@@ -262,6 +271,7 @@ export default function VibeCheckScreen() {
     setImageUri(null);
     setResult(null);
     setError(null);
+    setModReject(null);
     setLoading(false);
     setShowingLatest(false);
     setLatestCheckId(null);
@@ -506,6 +516,15 @@ export default function VibeCheckScreen() {
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
             </View>
+          )}
+
+          {modReject && (
+            <ModerationRejectCard
+              copyTier={modReject.copyTier}
+              hardLocked={modReject.hardLocked}
+              onRetry={() => setModReject(null)}
+              onDismiss={() => setModReject(null)}
+            />
           )}
 
           {/* Gallery fallback */}
